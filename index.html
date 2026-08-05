@@ -135,6 +135,17 @@
   <div class="section-title">Frota disponível hoje <span class="edit-link" id="editFleetLink" onclick="requestFleetEdit()">✏️ editar</span></div>
   <div class="fleet-groups" id="fleetGroups"></div>
 
+  <div class="side-grid">
+    <div class="side-card">
+      <table><thead><tr><th id="regionTableTitle">Peso agrupado por região</th><th class="num">Qtd. clientes</th><th class="num">Peso</th></tr></thead></table>
+      <div class="scroll"><table><tbody id="regionTableBody"></tbody></table></div>
+    </div>
+    <div class="side-card">
+      <table><thead><tr><th id="iqfTableTitle">Peso agrupado por IQF</th><th class="num">Qtd. CX</th><th class="num">Peso</th></tr></thead></table>
+      <div class="scroll"><table><tbody id="iqfTableBody"></tbody></table></div>
+    </div>
+  </div>
+
   <div class="section-title">Volumes no sistema Protheus</div>
   <div class="legend" id="legend"></div>
 
@@ -167,17 +178,6 @@
           <tbody id="vendorDetailBody"></tbody>
         </table>
       </div>
-    </div>
-  </div>
-
-  <div class="side-grid">
-    <div class="side-card">
-      <table><thead><tr><th id="regionTableTitle">Peso agrupado por região</th><th class="num">Qtd. clientes</th><th class="num">Peso</th></tr></thead></table>
-      <div class="scroll"><table><tbody id="regionTableBody"></tbody></table></div>
-    </div>
-    <div class="side-card">
-      <table><thead><tr><th id="iqfTableTitle">Peso agrupado por IQF</th><th class="num">Qtd. CX</th><th class="num">Peso</th></tr></thead></table>
-      <div class="scroll"><table><tbody id="iqfTableBody"></tbody></table></div>
     </div>
   </div>
 
