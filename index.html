@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Farol de Vendas</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0000D0">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Farol">
+<link rel="icon" href="icon-192.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --navy:#0000D0; --navy-2:#0000a8; --navy-3:#2626e0;
+    --paper:#f4f6fb; --card:#ffffff; --ink:#1a2238; --muted:#6b7590; --line:#e3e7f1;
+    --green:#1c8a4c; --green-bg:#e4f7ec;
+    --orange:#c97a12; --orange-bg:#fdf1de;
+    --red:#c62f2f; --red-bg:#fde7e7;
+    --gold:#e8a13a; --radius:12px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:Calibri,'Segoe UI',Arial,sans-serif;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;}
+  a{color:inherit;}
+  .topbar{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 60%,var(--navy-3) 100%);color:#fff;padding:18px 20px 22px;}
+  .topbar-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .title-block h1{margin:0;font-size:19px;letter-spacing:.03em;font-weight:700;}
+  .title-block .sub{margin-top:2px;font-size:13px;color:#c9d4f2;font-style:italic;}
+  .meta{text-align:right;font-size:11.5px;color:#b9c6ec;line-height:1.5;}
+  .meta .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gold);margin-right:5px;}
+  .meta.err .dot{background:var(--red);}
+  .btnbar{display:flex;gap:6px;justify-content:flex-end;margin-top:6px;}
+  .refresh-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;padding:5px 12px;border-radius:20px;font-size:11.5px;cursor:pointer;}
+  .refresh-btn:hover{background:rgba(255,255,255,.22);}
+  .search-wrap{margin-top:14px;position:relative;max-width:420px;}
+  .search-wrap input{width:100%;padding:10px 14px 10px 36px;border-radius:24px;border:none;font-size:14px;outline:none;}
+  .search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:15px;height:15px;opacity:.5;}
+  .wrap{max-width:1400px;margin:0 auto;padding:16px;}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:-14px;}
+  .card{background:var(--card);border-radius:var(--radius);padding:12px 14px;box-shadow:0 4px 14px rgba(15,35,80,.10);}
+  .card .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .card .val{font-size:20px;font-weight:700;color:var(--navy);margin-top:2px;}
+  .section-title{font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.04em;margin:22px 0 8px 2px;display:flex;align-items:center;gap:8px;}
+  .section-title::after{content:'';flex:1;height:1px;background:var(--line);}
+  .section-title .edit-link{font-weight:600;font-size:11px;color:var(--navy-3);cursor:pointer;text-transform:none;letter-spacing:0;}
+  .fleet-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;}
+  .fleet-card{background:var(--card);border-radius:var(--radius);overflow:hidden;box-shadow:0 4px 14px rgba(15,35,80,.08);}
+  .fleet-card table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .fleet-card th{background:var(--navy);color:#fff;font-weight:600;padding:7px 4px;text-align:center;font-size:11px;}
+  .fleet-card td{text-align:center;padding:6px 4px;border-top:1px solid var(--line);}
+  .fleet-card tr.qty td{color:var(--red);font-weight:700;}
+  .fleet-card tr.cap td{color:var(--navy-3);font-weight:700;background:#f2f5fc;}
+  .fleet-card .rowlabel{text-align:left;padding-left:10px;color:var(--muted);font-size:10.5px;font-weight:600;}
+  .fleet-card input{width:42px;text-align:center;border:1px solid var(--line);border-radius:6px;font-size:12px;padding:3px;}
+  .legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+  .pill{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;}
+  .pill .n{font-size:14px;}
+  .pill.red{background:var(--red-bg);color:var(--red);}
+  .pill.orange{background:var(--orange-bg);color:var(--orange);}
+  .pill.green{background:var(--green-bg);color:var(--green);}
+  .table-card{background:var(--card);border-radius:var(--radius);overflow:hidden;box-shadow:0 4px 14px rgba(15,35,80,.08);}
+  table.main{width:100%;border-collapse:collapse;font-size:12.5px;}
+  table.main thead th{background:var(--navy);color:#fff;padding:9px 8px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.02em;position:sticky;top:0;cursor:pointer;user-select:none;}
+  table.main thead th.num{text-align:right;}
+  table.main tbody td{padding:7px 8px;border-top:1px solid var(--line);white-space:nowrap;}
+  table.main tbody td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  table.main tbody tr:hover{background:#f7f9fd;}
+  table.main tbody tr.match{background:#fff6e0;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-weight:700;font-size:11.5px;min-width:34px;text-align:center;}
+  .badge.zero{background:transparent;color:var(--muted);font-weight:400;}
+  .badge.red{background:var(--red-bg);color:var(--red);}
+  .badge.orange{background:var(--orange-bg);color:var(--orange);}
+  .badge.green{background:var(--green-bg);color:var(--green);}
+  .vendor-name{font-weight:700;color:var(--navy);}
+  .table-scroll{overflow-x:auto;max-height:70vh;overflow-y:auto;}
+  .side-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:22px;}
+  .side-card{background:var(--card);border-radius:var(--radius);overflow:hidden;box-shadow:0 4px 14px rgba(15,35,80,.08);}
+  .side-card table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .side-card thead th{background:var(--navy-3);color:#fff;padding:8px;text-align:left;font-size:11px;text-transform:uppercase;}
+  .side-card thead th.num{text-align:right;}
+  .side-card tbody td{padding:6px 8px;border-top:1px solid var(--line);}
+  .side-card tbody td.num{text-align:right;}
+  .side-card tr.total{background:var(--navy);color:#fff;font-weight:700;}
+  .side-card .scroll{max-height:340px;overflow-y:auto;}
+  .footer{text-align:center;color:var(--muted);font-size:11px;margin:26px 0 10px;}
+  .banner{background:#fff3d6;color:#7a5400;border:1px solid #f0d693;border-radius:10px;padding:10px 14px;font-size:12.5px;margin:14px 0;}
+  .modal-bg{position:fixed;inset:0;background:rgba(10,20,50,.5);display:none;align-items:center;justify-content:center;z-index:50;padding:16px;}
+  .modal-bg.show{display:flex;}
+  .modal{background:#fff;border-radius:14px;padding:20px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;}
+  .modal h3{margin:0 0 12px;color:var(--navy);font-size:15px;}
+  .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .modal-grid label{font-size:11px;color:var(--muted);display:block;margin-bottom:3px;}
+  .modal-grid input{width:100%;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:14px;}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+  .modal-actions button{padding:9px 16px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;}
+  .btn-save{background:var(--navy);color:#fff;}
+  .btn-cancel{background:var(--paper);color:var(--ink);}
+  @media (max-width:820px){.cards{grid-template-columns:repeat(2,1fr);}.side-grid{grid-template-columns:1fr;}table.main{font-size:11.5px;}}
+  @media (max-width:480px){.cards{grid-template-columns:1fr 1fr;}.title-block h1{font-size:16px;}.modal-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div id="appRoot">
+<div class="topbar">
+  <div class="topbar-row">
+    <div class="title-block" style="display:flex;align-items:center;gap:12px;">
+      <img src="data:image/png;base64,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" alt="GTF" style="height:38px;width:auto;background:#fff;border-radius:8px;padding:4px 8px;">
+      <div>
+        <h1>MERCADO INTERNO | FAROL DE VENDAS</h1>
+        <div class="sub" id="filialName">APUCARANA</div>
+      </div>
+    </div>
+    <div class="meta" id="metaBox">
+      <span><span class="dot"></span><span id="statusText">carregando…</span></span><br>
+      atualizado em <span id="lastUpdate">—</span>
+      <div class="btnbar">
+        <button class="refresh-btn" id="passwordsBtn" onclick="openPasswordsModal()" style="display:none;">🔑 Trocar senha</button>
+        <button class="refresh-btn" id="editFleetBtn" onclick="requestFleetEdit()">🚚 Editar frota</button>
+        <button class="refresh-btn" id="refreshBtn" onclick="loadData()">↻ Atualizar</button>
+      </div>
+    </div>
+  </div>
+  <div class="search-wrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="white"><circle cx="11" cy="11" r="7" stroke-width="2"/><path d="M21 21l-4-4" stroke-width="2" stroke-linecap="round"/></svg>
+    <input id="searchInput" placeholder="Buscar meu nome / região..." oninput="renderTable()">
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="bannerArea"></div>
+  <div class="cards" id="cards"></div>
+
+  <div class="section-title">Frota disponível hoje <span class="edit-link" id="editFleetLink" onclick="requestFleetEdit()">✏️ editar</span></div>
+  <div class="fleet-groups" id="fleetGroups"></div>
+
+  <div class="section-title">Volumes no sistema Protheus</div>
+  <div class="legend" id="legend"></div>
+
+  <div class="table-card">
+    <div class="table-scroll">
+      <table class="main">
+        <thead>
+          <tr>
+            <th>Vendedor</th><th>Região</th><th>Perfil mínimo</th>
+            <th class="num">Peso</th><th class="num">Clientes</th><th class="num">CX</th>
+            <th class="num">Falta de saldo</th><th class="num">Pedido s/gestão</th><th class="num">Liberado</th>
+          </tr>
+        </thead>
+        <tbody id="mainTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="vendorDetailSection" style="display:none;">
+    <div class="section-title" id="vendorDetailTitle">Pedidos de —</div>
+    <div class="table-card">
+      <div class="table-scroll">
+        <table class="main">
+          <thead>
+            <tr>
+              <th>Pedido</th><th>Cliente</th><th>Código cliente</th><th>Cidade</th><th>Região</th>
+              <th class="num">Peso</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="vendorDetailBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="side-grid">
+    <div class="side-card">
+      <table><thead><tr><th id="regionTableTitle">Peso agrupado por região</th><th class="num">Qtd. clientes</th><th class="num">Peso</th></tr></thead></table>
+      <div class="scroll"><table><tbody id="regionTableBody"></tbody></table></div>
+    </div>
+    <div class="side-card">
+      <table><thead><tr><th id="iqfTableTitle">Peso agrupado por IQF</th><th class="num">Qtd. CX</th><th class="num">Peso</th></tr></thead></table>
+      <div class="scroll"><table><tbody id="iqfTableBody"></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="footer" id="footer">carregando…</div>
+</div>
+</div>
+
+<div class="modal-bg" id="pwdModal">
+  <div class="modal">
+    <h3>🔒 Senha de administrador</h3>
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px;">Só quem gerencia a frota deve alterar esses números.</p>
+    <input type="password" id="pwdInput" placeholder="Digite a senha" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px;" onkeydown="if(event.key==='Enter')checkFleetPassword()">
+    <div id="pwdError" style="color:var(--red);font-size:12px;margin-top:6px;display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closePwdModal()">Cancelar</button>
+      <button class="btn-save" id="pwdBtn" onclick="checkFleetPassword()">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="passwordsModal">
+  <div class="modal">
+    <h3>🔑 Trocar senha de administrador</h3>
+    <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Senha atual</label>
+    <input type="password" id="currentAdminPwd" placeholder="Senha atual" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:12px;">
+    <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Nova senha</label>
+    <input type="password" id="newAdminPwd" placeholder="Nova senha" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px;">
+    <div id="pwdChangeMsg" style="font-size:12px;margin-top:10px;display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closePasswordsModal()">Cancelar</button>
+      <button class="btn-save" onclick="savePassword()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="fleetModal">
+  <div class="modal">
+    <h3>🚚 Frota disponível agora</h3>
+    <div class="modal-grid" id="fleetForm"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeFleetModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveFleet()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== DADOS DE REFERÊNCIA (embutidos do seu arquivo original) =====
+const REF_BD = [{"cidade": "PEROBAL", "regiao": "ALTONIA"}, {"cidade": "XAMBRE", "regiao": "ALTONIA"}, {"cidade": "XAMBRÊ", "regiao": "ALTONIA"}, {"cidade": "CAFEZAL DO SUL", "regiao": "ALTONIA"}, {"cidade": "PEROLA", "regiao": "ALTONIA"}, {"cidade": "PÉROLA", "regiao": "ALTONIA"}, {"cidade": "IPORA", "regiao": "ALTONIA"}, {"cidade": "ESPERANCA NOVA", "regiao": "ALTONIA"}, {"cidade": "SAO JORGE DO PATROCINIO", "regiao": "ALTONIA"}, {"cidade": "SÃO JORGE DO PATROCÍNIO", "regiao": "ALTONIA"}, {"cidade": "ALTONIA", "regiao": "ALTONIA"}, {"cidade": "ALTÔNIA", "regiao": "ALTONIA"}, {"cidade": "ARAPONGAS", "regiao": "ARAPONGAS"}, {"cidade": "ROLANDIA", "regiao": "ARAPONGAS"}, {"cidade": "ROLÂNDIA", "regiao": "ARAPONGAS"}, {"cidade": "SABAUDIA", "regiao": "ARAPONGAS"}, {"cidade": "BANDEIRANTES", "regiao": "BANDEIRANTES"}, {"cidade": "ASSAI", "regiao": null}, {"cidade": "URAI", "regiao": "BANDEIRANTES"}, {"cidade": "SAO SEBASTIAO DA AMOREIRA", "regiao": null}, {"cidade": "CORNELIO PROCOPIO", "regiao": "BANDEIRANTES"}, {"cidade": "CORNÉLIO PROCÓPIO", "regiao": "BANDEIRANTES"}, {"cidade": "ANDIRA", "regiao": "BANDEIRANTES"}, {"cidade": "SANTO ANTONIO DA PLATINA", "regiao": "BANDEIRANTES"}, {"cidade": "FENIX", "regiao": "BARBOSA/IRETAMA"}, {"cidade": "BARBOSA FERRAZ", "regiao": "BARBOSA/IRETAMA"}, {"cidade": "CORUMBATAI DO SUL", "regiao": "BARBOSA/IRETAMA"}, {"cidade": "CORUMBATAÍ DO SUL", "regiao": "BARBOSA/IRETAMA"}, {"cidade": "LUIZIANA", "regiao": "BARBOSA/IRETAMA"}, {"cidade": "IRETAMA", "regiao": "BARBOSA/IRETAMA"}, {"cidade": "RONCADOR", "regiao": "BARBOSA/IRETAMA"}, {"cidade": "QUARTO CENTENARIO", "regiao": "BARBOSA/IRETAMA"}, {"cidade": "BELA VISTA DO PARAISO", "regiao": "BELA VISTA"}, {"cidade": "SERTANÓPOLIS", "regiao": "BELA VISTA"}, {"cidade": "SERTANOPOLIS", "regiao": "BELA VISTA"}, {"cidade": "ALVORADA DO SUL", "regiao": "BELA VISTA"}, {"cidade": "PRIMEIRO DE MAIO", "regiao": "BELA VISTA"}, {"cidade": "SERTANEJA", "regiao": "BELA VISTA"}, {"cidade": "BELA VISTA DA CAROBA", "regiao": "BELA VISTA"}, {"cidade": "QUINTA DO SOL", "regiao": "CAMPO MOURÃO"}, {"cidade": "ENGENHEIRO BELTRAO", "regiao": "CAMPO MOURÃO"}, {"cidade": "ENGENHEIRO BELTRÃO", "regiao": "CAMPO MOURÃO"}, {"cidade": "PEABIRU", "regiao": "CAMPO MOURÃO"}, {"cidade": "CAMPO MOURAO", "regiao": "CAMPO MOURÃO"}, {"cidade": "CAMPO MOURÃO", "regiao": "CAMPO MOURÃO"}, {"cidade": "ARARUNA", "regiao": "CAMPO MOURÃO"}, {"cidade": "TERRA BOA", "regiao": "CIANORTE"}, {"cidade": "CIANORTE", "regiao": "CIANORTE"}, {"cidade": "SAO TOME", "regiao": "CIANORTE"}, {"cidade": "SÃO TOMÉ", "regiao": "CIANORTE"}, {"cidade": "JAPURA", "regiao": "CIANORTE"}, {"cidade": "INDIANOPOLIS", "regiao": "CIANORTE"}, {"cidade": "ASTORGA", "regiao": "COLORADO 1"}, {"cidade": "MUNHOZ DE MELO", "regiao": "COLORADO 1"}, {"cidade": "ANGULO", "regiao": "COLORADO 1"}, {"cidade": "IGUARACU", "regiao": "COLORADO 1"}, {"cidade": "FLORIDA", "regiao": "COLORADO 1"}, {"cidade": "ATALAIA", "regiao": "COLORADO 1"}, {"cidade": "LOBATO", "regiao": "COLORADO 1"}, {"cidade": "SANTA FÉ", "regiao": "COLORADO 2"}, {"cidade": "NOSSA SENHORA DAS GRACAS", "regiao": "COLORADO 2"}, {"cidade": "NOSSA SENHORA DAS GRAÇAS", "regiao": "COLORADO 2"}, {"cidade": "COLORADO", "regiao": "COLORADO 2"}, {"cidade": "ITAGUAJE", "regiao": "COLORADO 2"}, {"cidade": "OURIZONA", "regiao": "DOURADINA"}, {"cidade": "SAO JORGE DO IVAI", "regiao": "DOURADINA"}, {"cidade": "SÃO JORGE DO IVAÍ", "regiao": "DOURADINA"}, {"cidade": "FLORAI", "regiao": "DOURADINA"}, {"cidade": "SAO CARLOS DO IVAI", "regiao": "DOURADINA"}, {"cidade": "PARAISO DO NORTE", "regiao": "DOURADINA"}, {"cidade": "RONDON", "regiao": "DOURADINA"}, {"cidade": "MIRADOR", "regiao": "DOURADINA"}, {"cidade": "GUAPOREMA", "regiao": "DOURADINA"}, {"cidade": "CIDADE GAUCHA", "regiao": "DOURADINA"}, {"cidade": "CIDADE GAÚCHA", "regiao": "DOURADINA"}, {"cidade": "TAPIRA", "regiao": "DOURADINA"}, {"cidade": "NOVA OLIMPIA", "regiao": "DOURADINA"}, {"cidade": "NOVA OLÍMPIA", "regiao": "DOURADINA"}, {"cidade": "DOURADINA", "regiao": "DOURADINA"}, {"cidade": "IVATE", "regiao": "DOURADINA"}, {"cidade": "IVATÉ", "regiao": "DOURADINA"}, {"cidade": "ALTO PARAISO", "regiao": "DOURADINA"}, {"cidade": "ICARAIMA", "regiao": "DOURADINA"}, {"cidade": "ICARAÍMA", "regiao": "DOURADINA"}, {"cidade": "CALIFORNIA", "regiao": "FAXINAL"}, {"cidade": "APUCARANA", "regiao": "ARAPONGAS"}, {"cidade": "MARILANDIA DO SUL", "regiao": "FAXINAL"}, {"cidade": "RIO BOM", "regiao": "FAXINAL"}, {"cidade": "CAMBIRA", "regiao": "FAXINAL"}, {"cidade": "MAUA DA SERRA", "regiao": "FAXINAL"}, {"cidade": "JANDAIA DO SUL", "regiao": "FAXINAL"}, {"cidade": "FAXINAL", "regiao": "FAXINAL"}, {"cidade": "CRUZMALTINA", "regiao": "FAXINAL"}, {"cidade": "BORRAZOPOLIS", "regiao": "FAXINAL"}, {"cidade": "BORRAZÓPOLIS", "regiao": "FAXINAL"}, {"cidade": "GRANDES RIOS", "regiao": "FAXINAL"}, {"cidade": "ROSARIO DO IVAI", "regiao": "FAXINAL"}, {"cidade": "MANDAGUARI", "regiao": "FOOD MARINGÁ"}, {"cidade": "BOM SUCESSO", "regiao": "FOOD MARINGÁ"}, {"cidade": "MARIALVA", "regiao": "FOOD MARINGÁ"}, {"cidade": "MARIALVÁ", "regiao": "FOOD MARINGÁ"}, {"cidade": "SARANDI", "regiao": "FOOD MARINGÁ"}, {"cidade": "MARINGA", "regiao": "FOOD MARINGÁ"}, {"cidade": "MARINGÁ", "regiao": "FOOD MARINGÁ"}, {"cidade": "PAICANDU", "regiao": "FOOD MARINGÁ"}, {"cidade": "AGUA BOA ", "regiao": "FOOD MARINGÁ"}, {"cidade": "MANDAGUACU", "regiao": "FOOD MARINGÁ"}, {"cidade": "MANDAGUAÇU", "regiao": "FOOD MARINGÁ"}, {"cidade": "FLORESTA", "regiao": "FOOD MARINGÁ"}, {"cidade": "DOUTOR CAMARGO", "regiao": "FOOD MARINGÁ"}, {"cidade": "ITAMBE", "regiao": "FOOD MARINGÁ"}, {"cidade": "ITAMBÉ", "regiao": "FOOD MARINGÁ"}, {"cidade": "IVATUBA", "regiao": "FOOD MARINGÁ"}, {"cidade": "FAROL", "regiao": "GOIOERE"}, {"cidade": "JANIOPOLIS", "regiao": "GOIOERE"}, {"cidade": "BOA ESPERANCA", "regiao": "GOIOERE"}, {"cidade": "MOREIRA SALES", "regiao": "GOIOERE"}, {"cidade": "GOIOERE", "regiao": "GOIOERE"}, {"cidade": "GOIOERÊ", "regiao": "GOIOERE"}, {"cidade": "RANCHO ALEGRE D OESTE", "regiao": "GOIOERE"}, {"cidade": "GUAIRA", "regiao": "ALTONIA"}, {"cidade": "GUAÍRA", "regiao": "ALTONIA"}, {"cidade": "SAO PEDRO DO IVAI", "regiao": "IVAIPORÃ"}, {"cidade": "SÃO PEDRO DO IVAÍ", "regiao": "IVAIPORÃ"}, {"cidade": "SAO JOAO DO IVAI", "regiao": "IVAIPORÃ"}, {"cidade": "SÃO JOÃO DO IVAÍ", "regiao": "IVAIPORÃ"}, {"cidade": "SAO JOAO DO IVAÍ", "regiao": "IVAIPORÃ"}, {"cidade": "LIDIANOPOLIS", "regiao": "IVAIPORÃ"}, {"cidade": "LUNARDELLI", "regiao": "IVAIPORÃ"}, {"cidade": "JARDIM ALEGRE", "regiao": "IVAIPORÃ"}, {"cidade": "LIDIANOPOLIS", "regiao": "IVAIPORÃ"}, {"cidade": "IVAIPORA", "regiao": "IVAIPORÃ"}, {"cidade": "IVAIPORÃ", "regiao": "IVAIPORÃ"}, {"cidade": "GUAIRACA", "regiao": "LOANDA"}, {"cidade": "GUAIRACÁ", "regiao": "LOANDA"}, {"cidade": "AMAPORA", "regiao": "LOANDA"}, {"cidade": "AMAPORÃ", "regiao": "LOANDA"}, {"cidade": "TERRA RICA", "regiao": "LOANDA"}, {"cidade": "PLANALTINA DO PARANA", "regiao": "LOANDA"}, {"cidade": "NOVA LONDRINA", "regiao": "LOANDA"}, {"cidade": "MARILENA", "regiao": "LOANDA"}, {"cidade": "LOANDA", "regiao": "LOANDA"}, {"cidade": "PORTO SAO JOSE (DISTRITO)", "regiao": "LOANDA"}, {"cidade": "DIAMANTE DO NORTE", "regiao": "LOANDA"}, {"cidade": "ITAUNA DO SUL", "regiao": "LOANDA"}, {"cidade": "PORTO RICO", "regiao": "LOANDA"}, {"cidade": "SAO PEDRO DO PARANA", "regiao": "LOANDA"}, {"cidade": "SANTA CRUZ DE MONTE CASTELO", "regiao": "LOANDA"}, {"cidade": "SANTA ISABEL DO IVAI", "regiao": "LOANDA"}, {"cidade": "SANTA ISABEL DO IVAÍ", "regiao": "LOANDA"}, {"cidade": "QUERENCIA DO NORTE", "regiao": "LOANDA"}, {"cidade": "CAMBE", "regiao": "LONDRINA/REGIÃO"}, {"cidade": "LONDRINA", "regiao": "LONDRINA/REGIÃO"}, {"cidade": "IBIPORA", "regiao": "LONDRINA/REGIÃO"}, {"cidade": "JATAIZINHO", "regiao": "LONDRINA/REGIÃO"}, {"cidade": "006591/A0IRMAOS MUFFATO & CIA LTDAUMUARAMA", "regiao": "MUFFATO UMUARAMA"}, {"cidade": "005865/12GCA - DISTRIBUIDORA COMERCIAL DE ALIMENTOS LTDAPAICANDU", "regiao": "CAMILO PAIÇANDU"}, {"cidade": "013784/02SUPER PUPPO SUPERMERCADOS LTDACASCAVEL", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "013784/01SUPER PUPPO SUPERMERCADOS LTDACASCAVEL", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "013784/03SUPER PUPPO SUPERMERCADOS LTDACASCAVEL", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006646/15ITALO SUPERMERCADOS LTDAFOZ DO IGUACU", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/43IRMAOS MUFFATO S.ACASCAVEL", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006646/09ITALO SUPERMERCADOS LTDAFOZ DO IGUACU", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "001293/12SENDAS DISTRIBUIDORA S/ALONDRINA", "regiao": "SENDAS LONDRINA"}, {"cidade": "006591/44IRMAOS MUFFATO S.ACASCAVEL", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/9AIRMAOS MUFFATO S.ATOLEDO", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/63IRMAOS MUFFATO S.AFOZ DO IGUACU", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/9KIRMAOS MUFFATO S.AFOZ DO IGUACU", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/9OIRMAOS MUFFATO S.AFOZ DO IGUACU", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/10IRMAOS MUFFATO S.AFOZ DO IGUACU", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "001293/58SENDAS DISTRIBUIDORA S/ALONDRINA", "regiao": "SENDAS LONDRINA"}, {"cidade": "006591/12IRMAOS MUFFATO S.ACASCAVEL", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/15IRMAOS MUFFATO S.ACASCAVEL", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/13IRMAOS MUFFATO S.ACASCAVEL", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/29IRMAOS MUFFATO S.ATOLEDO", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/36IRMAOS MUFFATO S.AFOZ DO IGUACU", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/45IRMAOS MUFFATO S.AFOZ DO IGUACU", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/99IRMAOS MUFFATO S.ACASCAVEL", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/9DIRMAOS MUFFATO S.AMARECHAL CANDIDO RONDON", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/09IRMAOS MUFFATO S.AFOZ DO IGUACU", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/11IRMAOS MUFFATO S.AFOZ DO IGUACU", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006646/32ITALO SUPERMERCADOS LTDAFOZ DO IGUACU", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "014334/01RORATO E YAMAMOTO LTDAMARIALVA", "regiao": "RORATO  - NOVA ERA"}, {"cidade": "006591/48IRMAOS MUFFATO S.ACASCAVEL", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "004554/04DUSNEI ALIMENTOS LTDACASCAVEL", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/16IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006646/33ITALO SUPERMERCADOS LTDACASCAVEL", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/23IRMAOS MUFFATO S.AFOZ DO IGUACU", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006646/16ITALO SUPERMERCADOS LTDAFOZ DO IGUACU", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/14IRMAOS MUFFATO S.ACASCAVEL", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "006591/55IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/07IRMAOS MUFFATO S.AARAPONGAS", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/42IRMAOS MUFFATO S.AAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/55IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "ALTO PARANA", "regiao": "PARANAVAI"}, {"cidade": "ALTO PARANÁ", "regiao": "PARANAVAI"}, {"cidade": "PARANAVAI", "regiao": "PARANAVAI"}, {"cidade": "PARANAVAÍ", "regiao": "PARANAVAI"}, {"cidade": "TAMBOARA", "regiao": "PARANAVAI"}, {"cidade": "MANOEL RIBAS", "regiao": "PITANGA"}, {"cidade": "PITANGA", "regiao": "PITANGA"}, {"cidade": "JAGUAPITA", "regiao": "PORECATU"}, {"cidade": "PRADO FERREIRA", "regiao": "PORECATU"}, {"cidade": "MIRASELVA", "regiao": "PORECATU"}, {"cidade": "GUARACI", "regiao": "PORECATU"}, {"cidade": "FLORESTOPOLIS", "regiao": "PORECATU"}, {"cidade": "CENTENARIO DO SUL", "regiao": "PORECATU"}, {"cidade": "CENTENÁRIO DO SUL", "regiao": "PORECATU"}, {"cidade": "PORECATU", "regiao": "PORECATU"}, {"cidade": "SANTO INACIO", "regiao": "PORECATU"}, {"cidade": "REGENTE FEIJO", "regiao": "PRESID. PRUDENTE + VENCESLAU"}, {"cidade": "TARABAI", "regiao": "PRESID. PRUDENTE + VENCESLAU"}, {"cidade": "PIRAPOZINHO", "regiao": "PRESID. PRUDENTE + VENCESLAU"}, {"cidade": "PRESIDENTE PRUDENTE", "regiao": "PRESID. PRUDENTE + VENCESLAU"}, {"cidade": "RANCHARIA", "regiao": "PRESID. PRUDENTE + VENCESLAU"}, {"cidade": "MARTINOPOLIS", "regiao": "PRESID. PRUDENTE + VENCESLAU"}, {"cidade": "ALVARES MACHADO", "regiao": "PRESID. PRUDENTE + VENCESLAU"}, {"cidade": "SANTO ANASTACIO", "regiao": "PRESID. PRUDENTE + VENCESLAU"}, {"cidade": "PRESIDENTE VENCESLAU", "regiao": "PRESID. PRUDENTE + VENCESLAU"}, {"cidade": "PRESIDENTE CASTELO BRANCO", "regiao": "S. J DO CAIUA"}, {"cidade": "NOVA ESPERANCA", "regiao": "S. J DO CAIUA"}, {"cidade": "NOVA ESPERANÇA", "regiao": "S. J DO CAIUA"}, {"cidade": "UNIFLOR", "regiao": "S. J DO CAIUA"}, {"cidade": "CRUZEIRO DO SUL", "regiao": "S. J DO CAIUA"}, {"cidade": "PARANACITY", "regiao": "S. J DO CAIUA"}, {"cidade": "SAO JOAO DO CAIUA", "regiao": "S. J DO CAIUA"}, {"cidade": "SANTO ANTONIO DO CAIUA", "regiao": "S. J DO CAIUA"}, {"cidade": "TELEMACO BORBA", "regiao": "TELEMACO"}, {"cidade": "MAMBORE", "regiao": "UBIRATÃ"}, {"cidade": "JURANDA", "regiao": "UBIRATÃ"}, {"cidade": "UBIRATA", "regiao": "UBIRATÃ"}, {"cidade": "UBIRATÃ", "regiao": "UBIRATÃ"}, {"cidade": "CAMPINA DA LAGOA", "regiao": "UBIRATÃ"}, {"cidade": "TAPEJARA", "regiao": "UMUARAMA"}, {"cidade": "TUNEIRAS DO OESTE", "regiao": "UMUARAMA"}, {"cidade": "CRUZEIRO DO OESTE", "regiao": "UMUARAMA"}, {"cidade": "UMUARAMA", "regiao": "UMUARAMA"}, {"cidade": "MARIA HELENA", "regiao": "UMUARAMA"}, {"cidade": "SERRA DOS DOURADOS (DISTRITO)", "regiao": "UMUARAMA"}, {"cidade": "TAMARANA", "regiao": null}, {"cidade": "NOVO ITACOLOMI", "regiao": "IVAIPORÃ"}, {"cidade": "ROLÂNDIA", "regiao": null}, {"cidade": "MARUMBI", "regiao": null}, {"cidade": "PITANGUEIRAS", "regiao": "ARAPONGAS"}, {"cidade": "SANTA MONICA", "regiao": null}, {"cidade": "KALORE", "regiao": null}, {"cidade": "SANTA ZELIA (DISTRITO)", "regiao": null}, {"cidade": "PAIÇANDU", "regiao": null}, {"cidade": "SANTA FE", "regiao": "COLORADO 2"}, {"cidade": "FÊNIX", "regiao": null}, {"cidade": "BENTOPOLIS (DISTRITO)", "regiao": null}, {"cidade": "RIO BRANCO DO IVAI", "regiao": null}, {"cidade": "IVAILANDIA", "regiao": null}, {"cidade": "LUPIONOPOLIS", "regiao": null}, {"cidade": "GODOY MOREIRA", "regiao": null}, {"cidade": "MENDESLANDIA (DISTRITO)", "regiao": null}, {"cidade": "CAFEARA", "regiao": null}, {"cidade": "GODOY MOREIRA", "regiao": null}, {"cidade": "CORNÉLIO PROCÓPIO", "regiao": null}, {"cidade": "NOVA AMERICA DA COLINA", "regiao": null}, {"cidade": "SANTA CECILIA DO PAVAO", "regiao": null}, {"cidade": "RANCHO ALEGRE", "regiao": "BELA VISTA"}, {"cidade": "ARAPUA", "regiao": null}, {"cidade": "JUSSARA", "regiao": "CIANORTE"}, {"cidade": "NOVA SANTA BARBARA", "regiao": null}, {"cidade": "ARIRANHA DO IVAÍ", "regiao": null}, {"cidade": "SANTO ANTONIO DO PARAISO", "regiao": null}, {"cidade": "LEOPOLIS", "regiao": "BELA VISTA"}, {"cidade": "SANTA MARIANA", "regiao": "BANDEIRANTES"}, {"cidade": "SANTA INES", "regiao": null}, {"cidade": "SAO JERONIMO DA SERRA", "regiao": null}, {"cidade": "CONGONHINHAS", "regiao": "BANDEIRANTES"}, {"cidade": "TARUMA", "regiao": null}, {"cidade": "NOVA FATIMA", "regiao": null}, {"cidade": "SAO MANOEL DO PARANA", "regiao": "DOURADINA"}, {"cidade": "SÃO MANOEL DO PARANÁ", "regiao": "DOURADINA"}, {"cidade": "TIBAGI", "regiao": null}, {"cidade": "PARANAPOEMA", "regiao": null}, {"cidade": "CANDIDO DE ABREU", "regiao": null}, {"cidade": "JARDIM OLINDA", "regiao": null}, {"cidade": "INAJA", "regiao": null}, {"cidade": "ITAMBARACA", "regiao": "BANDEIRANTES"}, {"cidade": "NOVA ALIANCA DO IVAI", "regiao": null}, {"cidade": "ASSIS", "regiao": null}, {"cidade": "ABATIA", "regiao": null}, {"cidade": "SAPOPEMA", "regiao": null}, {"cidade": "BARRA DO JACARE", "regiao": "BANDEIRANTES"}, {"cidade": "RIBEIRAO DO PINHAL", "regiao": "BANDEIRANTES"}, {"cidade": "SANTA AMELIA", "regiao": null}, {"cidade": "SÃO MANOEL DO PARANÁ", "regiao": null}, {"cidade": "CAMBARA", "regiao": "BANDEIRANTES"}, {"cidade": "JUNDIAI DO SUL", "regiao": null}, {"cidade": "PLATINA", "regiao": null}, {"cidade": "PARAGUACU PAULISTA", "regiao": null}, {"cidade": "PALMITAL", "regiao": null}, {"cidade": "NOVA TEBAS", "regiao": null}, {"cidade": "SANTA MARIA DO OESTE", "regiao": null}, {"cidade": "JACAREZINHO", "regiao": null}, {"cidade": "CAIABU", "regiao": null}, {"cidade": "IBAITI", "regiao": null}, {"cidade": "OURINHOS", "regiao": null}, {"cidade": "GUAPIRAMA", "regiao": null}, {"cidade": "BOA VENTURA DE SÃO ROQUE", "regiao": null}, {"cidade": "BOA VENTURA DE SAO ROQUE", "regiao": null}, {"cidade": "JAPIRA", "regiao": null}, {"cidade": "CONSELHEIRO MAIRINCK", "regiao": null}, {"cidade": "MIRANTE DO PARANAPANEMA", "regiao": null}, {"cidade": "PINHALAO", "regiao": null}, {"cidade": "CAMPINA DO SIMAO", "regiao": null}, {"cidade": "JOAQUIM TAVORA", "regiao": null}, {"cidade": "MARILUZ", "regiao": "GOIOERE"}, {"cidade": "CHAVANTES", "regiao": null}, {"cidade": "JABOTI", "regiao": null}, {"cidade": "IV CENTENARIO", "regiao": null}, {"cidade": "MATO RICO", "regiao": null}, {"cidade": "BASTOS", "regiao": null}, {"cidade": "QUATIGUA", "regiao": null}, {"cidade": "RIBEIRAO CLARO", "regiao": null}, {"cidade": "SÃO PEDRO DO PARANÁ", "regiao": null}, {"cidade": "MARILIA", "regiao": null}, {"cidade": "TOMAZINA", "regiao": null}, {"cidade": "OSVALDO CRUZ", "regiao": "DUSNEI - SP"}, {"cidade": "SÃO JOSE DO IVAI (DISTRITO 28)   ", "regiao": null}, {"cidade": "NOVA CANTU", "regiao": "BARBOSA/IRETAMA"}, {"cidade": "INUBIA PAULISTA", "regiao": null}, {"cidade": "PARAPUA", "regiao": null}, {"cidade": "SIQUEIRA CAMPOS", "regiao": null}, {"cidade": "VERA CRUZ", "regiao": null}, {"cidade": "CARLOPOLIS", "regiao": null}, {"cidade": "GUARAPUAVA", "regiao": null}, {"cidade": "SANTA ELIZA (DISTRITO)", "regiao": null}, {"cidade": "FORMOSA DO OESTE", "regiao": null}, {"cidade": "HERCULANDIA", "regiao": null}, {"cidade": "QUINTANA", "regiao": null}, {"cidade": "RINOPOLIS", "regiao": null}, {"cidade": "ALTO PIQUIRI", "regiao": "ALTONIA"}, {"cidade": "TUPA", "regiao": null}, {"cidade": "SANTA CRUZ DO RIO PARDO", "regiao": null}, {"cidade": "WENCESLAU BRAZ", "regiao": null}, {"cidade": "SALMOURAO", "regiao": null}, {"cidade": "PRESIDENTE EPITACIO", "regiao": "PRESID. PRUDENTE + VENCESLAU"}, {"cidade": "POMPEIA", "regiao": null}, {"cidade": "JESUITAS", "regiao": null}, {"cidade": "GARCA", "regiao": null}, {"cidade": "LARANJAL", "regiao": null}, {"cidade": "LUCELIA", "regiao": null}, {"cidade": "SALTO DO ITARARE", "regiao": null}, {"cidade": "PRUDENTOPOLIS", "regiao": null}, {"cidade": "NOVA AURORA", "regiao": "UBIRATÃ"}, {"cidade": "BRASILANDIA DO SUL", "regiao": null}, {"cidade": "ALTAMIRA DO PARANA", "regiao": null}, {"cidade": "ADAMANTINA", "regiao": null}, {"cidade": "ANAHY", "regiao": null}, {"cidade": "ASSIS CHATEAUBRIAND", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "FRANCISCO ALVES", "regiao": "ALTONIA"}, {"cidade": "MARQUINHO", "regiao": null}, {"cidade": "CORBELIA", "regiao": "CASCAVEL"}, {"cidade": "IGUATU", "regiao": null}, {"cidade": "IRACEMA DO OESTE", "regiao": null}, {"cidade": "CAFELANDIA", "regiao": null}, {"cidade": "SANTANA DO ITARARE", "regiao": null}, {"cidade": "SAO JOSE DA BOA VISTA", "regiao": null}, {"cidade": "FARTURA", "regiao": null}, {"cidade": "GOIOXIM", "regiao": null}, {"cidade": "BRAGANEY", "regiao": null}, {"cidade": "DOUTOR ULYSSES", "regiao": null}, {"cidade": "LINS", "regiao": null}, {"cidade": "PALOTINA", "regiao": null}, {"cidade": "TUPASSI", "regiao": null}, {"cidade": "DUARTINA", "regiao": null}, {"cidade": "PIRAJUI", "regiao": null}, {"cidade": "LARANJEIRAS DO SUL", "regiao": null}, {"cidade": "MARIPA", "regiao": null}, {"cidade": "TERRA ROXA", "regiao": null}, {"cidade": "MIRANDOPOLIS", "regiao": null}, {"cidade": "BIRIGUI", "regiao": null}, {"cidade": "CASCAVEL", "regiao": "CASCAVEL"}, {"cidade": "PROMISSAO", "regiao": null}, {"cidade": "PRESIDENTE ALVES", "regiao": null}, {"cidade": "RIO BONITO DO IGUACU", "regiao": null}, {"cidade": "VIRMOND", "regiao": null}, {"cidade": "ARACATUBA", "regiao": null}, {"cidade": "GUARARAPES", "regiao": null}, {"cidade": "PORTO BARREIRO", "regiao": null}, {"cidade": "PENAPOLIS", "regiao": null}, {"cidade": "NOVA SANTA ROSA", "regiao": null}, {"cidade": "CAMPO BONITO", "regiao": null}, {"cidade": "AVANHANDAVA", "regiao": null}, {"cidade": "GUARANIACU", "regiao": null}, {"cidade": "SANTA TEREZA DO OESTE", "regiao": null}, {"cidade": "IBEMA", "regiao": null}, {"cidade": "NOVA LARANJEIRAS", "regiao": null}, {"cidade": "MARECHAL CANDIDO RONDON", "regiao": null}, {"cidade": "ANDRADINA", "regiao": null}, {"cidade": "SAO PEDRO DO IGUACU", "regiao": null}, {"cidade": "TOLEDO", "regiao": "CASCAVEL"}, {"cidade": "SAUDADE DO IGUACU", "regiao": null}, {"cidade": "MERCEDES", "regiao": null}, {"cidade": "ESPIGAO ALTO DO IGUACU", "regiao": null}, {"cidade": "VERA CRUZ DO OESTE", "regiao": null}, {"cidade": "LINDOESTE", "regiao": null}, {"cidade": "CATANDUVAS", "regiao": null}, {"cidade": "CEU AZUL", "regiao": null}, {"cidade": "QUATRO PONTES", "regiao": null}, {"cidade": "QUEDAS DO IGUACU", "regiao": null}, {"cidade": "OURO VERDE DO OESTE", "regiao": null}, {"cidade": "MANGUEIRINHA", "regiao": null}, {"cidade": "SULINA", "regiao": null}, {"cidade": "BOA VISTA DA APARECIDA", "regiao": null}, {"cidade": "SÃO JOAO", "regiao": null}, {"cidade": "CHOPINZINHO", "regiao": null}, {"cidade": "PATO BRAGADO", "regiao": null}, {"cidade": "DIAMANTE DO SUL", "regiao": null}, {"cidade": "MATELANDIA", "regiao": null}, {"cidade": "CAPITAO LEONIDAS MARQUES", "regiao": null}, {"cidade": "RAMILANDIA", "regiao": null}, {"cidade": "CORONEL VIVIDA", "regiao": null}, {"cidade": "SAO JOSE DAS PALMEIRAS", "regiao": null}, {"cidade": "ENTRE RIOS DO OESTE", "regiao": null}, {"cidade": "TRES BARRAS DO PARANA", "regiao": null}, {"cidade": "DIAMANTE D'OESTE", "regiao": null}, {"cidade": "CRUZEIRO DO IGUACU", "regiao": null}, {"cidade": "ITAPEJARA D'OESTE", "regiao": null}, {"cidade": "SAO JORGE D'OESTE", "regiao": null}, {"cidade": "HONORIO SERPA", "regiao": null}, {"cidade": "SERRANOPOLIS DO IGUACU", "regiao": null}, {"cidade": "SAO MIGUEL DO IGUACU", "regiao": null}, {"cidade": "REALEZA", "regiao": null}, {"cidade": "SANTA HELENA", "regiao": null}, {"cidade": "BOA ESPERANCA DO IGUACU", "regiao": null}, {"cidade": "PATO BRANCO", "regiao": null}, {"cidade": "VERE", "regiao": null}, {"cidade": "NOVA PRATA DO IGUACU", "regiao": null}, {"cidade": "BOM SUCESSO DO SUL", "regiao": null}, {"cidade": "DOIS VIZINHOS", "regiao": null}, {"cidade": "MISSAL", "regiao": null}, {"cidade": "ITAIPULANDIA", "regiao": null}, {"cidade": "SANTA IZABEL DO OESTE", "regiao": null}, {"cidade": "VITORINO", "regiao": null}, {"cidade": "CAPANEMA", "regiao": null}, {"cidade": "FRANCISCO BELTRAO", "regiao": null}, {"cidade": "PALMAS", "regiao": null}, {"cidade": "AMPERE", "regiao": null}, {"cidade": "SALTO DO LONTRA", "regiao": null}, {"cidade": "MARMELEIRO", "regiao": null}, {"cidade": "MARIOPOLIS", "regiao": null}, {"cidade": "SAO LOURENCO DO OESTE", "regiao": null}, {"cidade": "PEROLA DO OESTE", "regiao": null}, {"cidade": "MEDIANEIRA", "regiao": "BITRUCK FOZ+CASCAVEL"}, {"cidade": "FOZ DO IGUACU", "regiao": null}, {"cidade": "RENASCENCA", "regiao": null}, {"cidade": "ENEAS MARQUES", "regiao": null}, {"cidade": "NOVA ESPERANCA DO SUDOESTE", "regiao": null}, {"cidade": "PINHAL DE SAO BENTO", "regiao": null}, {"cidade": "CLEVELANDIA", "regiao": null}, {"cidade": "MANFRINOPOLIS", "regiao": null}, {"cidade": "PRANCHITA", "regiao": null}, {"cidade": "FLOR DA SERRA DO SUL", "regiao": null}, {"cidade": "SANTO ANTONIO DO SUDOESTE", "regiao": null}, {"cidade": "SALGADO FILHO", "regiao": null}, {"cidade": "DIONISIO CERQUEIRA", "regiao": null}, {"cidade": "BOM JESUS DO SUL", "regiao": null}, {"cidade": "BARRACAO", "regiao": null}, {"cidade": "PLANALTO", "regiao": null}, {"cidade": "MAMBORÊ", "regiao": "UBIRATÃ"}, {"cidade": "MAMBORE", "regiao": "UBIRATÃ"}, {"cidade": "006591/61IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/61IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/61IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/54IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/54IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/54IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/33IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/33IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/33IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/33IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/32IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/03IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/03IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/46IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/46IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/70IRMAOS MUFFATO S.ACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/70IRMAOS MUFFATO S.ACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/02IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/02IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/72IRMAOS MUFFATO S.ACIANORTE", "regiao": "MUFFATO CIANORTE"}, {"cidade": "006591/55IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/42IRMAOS MUFFATO & CIA LTDAAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/42IRMAOS MUFFATO & CIA LTDAAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/42IRMAOS MUFFATO & CIA LTDAAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/39IRMAOS MUFFATO & CIA LTDACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/55IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/55IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/55IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/55IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/75IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/75IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/75IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/A0IRMAOS MUFFATO & CIA LTDAUMUARAMA", "regiao": "MUFFATO UMUARAMA"}, {"cidade": "006591/A0IRMAOS MUFFATO & CIA LTDAUMUARAMA", "regiao": "MUFFATO UMUARAMA"}, {"cidade": "006591/A0IRMAOS MUFFATO & CIA LTDAUMUARAMA", "regiao": "MUFFATO UMUARAMA"}, {"cidade": "006591/A0IRMAOS MUFFATO & CIA LTDAUMUARAMA", "regiao": "MUFFATO UMUARAMA"}, {"cidade": "006591/46IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/46IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/46IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/46IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/42IRMAOS MUFFATO & CIA LTDAAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/42IRMAOS MUFFATO & CIA LTDAAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/42IRMAOS MUFFATO & CIA LTDAAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/42IRMAOS MUFFATO & CIA LTDAAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/41IRMAOS MUFFATO S.APARANAVAI", "regiao": "MUFFATO PARANAVAI"}, {"cidade": "006591/41IRMAOS MUFFATO S.APARANAVAI", "regiao": "MUFFATO PARANAVAI"}, {"cidade": "006591/41IRMAOS MUFFATO S.APARANAVAI", "regiao": "MUFFATO PARANAVAI"}, {"cidade": "006591/41IRMAOS MUFFATO S.APARANAVAI", "regiao": "MUFFATO PARANAVAI"}, {"cidade": "006591/39IRMAOS MUFFATO & CIA LTDACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/39IRMAOS MUFFATO & CIA LTDACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/39IRMAOS MUFFATO & CIA LTDACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/46IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/46IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/46IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/46IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/41IRMAOS MUFFATO S.APARANAVAI", "regiao": "MUFFATO PARANAVAI"}, {"cidade": "006591/39IRMAOS MUFFATO & CIA LTDACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/39IRMAOS MUFFATO & CIA LTDACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/39IRMAOS MUFFATO & CIA LTDACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/61IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/61IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/05IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/97IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/97IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/19IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/62IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/62IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/62IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/69IRMAOS MUFFATO S.AAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/69IRMAOS MUFFATO S.AAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/69IRMAOS MUFFATO S.AAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/69IRMAOS MUFFATO S.AAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/19IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/19IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/19IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/42IRMAOS MUFFATO & CIA LTDAAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/42IRMAOS MUFFATO & CIA LTDAAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/42IRMAOS MUFFATO & CIA LTDAAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/42IRMAOS MUFFATO & CIA LTDAAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/70IRMAOS MUFFATO S.ACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/70IRMAOS MUFFATO S.ACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/70IRMAOS MUFFATO S.ACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/70IRMAOS MUFFATO S.ACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/35IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/35IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/32IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/32IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/32IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/54IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/33IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/33IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/33IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/33IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/03IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/03IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/03IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/03IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/54IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/27IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/27IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/27IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/67IRMAOS MUFFATO & CIA LTDAROLANDIA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/67IRMAOS MUFFATO & CIA LTDAROLANDIA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/67IRMAOS MUFFATO & CIA LTDAROLANDIA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/67IRMAOS MUFFATO & CIA LTDAROLANDIA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/16IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/16IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/16IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/02IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/02IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/02IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/A0IRMAOS MUFFATO & CIA LTDAUMUARAMA", "regiao": "MUFFATO UMUARAMA"}, {"cidade": "006591/A0IRMAOS MUFFATO & CIA LTDAUMUARAMA", "regiao": "MUFFATO UMUARAMA"}, {"cidade": "006591/08IRMAOS MUFFATO S.ACAMPO MOURAO", "regiao": "MUFFATO C. MOURAO"}, {"cidade": "006591/08IRMAOS MUFFATO S.ACAMPO MOURAO", "regiao": "MUFFATO C. MOURAO"}, {"cidade": "006591/26IRMAOS MUFFATO S.AIBIPORA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/26IRMAOS MUFFATO S.AIBIPORA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/26IRMAOS MUFFATO S.AIBIPORA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/42IRMAOS MUFFATO & CIA LTDAAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/70IRMAOS MUFFATO S.ACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/46IRMAOS MUFFATO S.AMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/9PIRMAOS MUFFATO & CIA LTDAGUAIRA", "regiao": "MUFFATO GUAIRA"}, {"cidade": "006591/55IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/55IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/55IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/18IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/18IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/18IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/17IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/17IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/75IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/75IRMAOS MUFFATO S.ALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/07IRMAOS MUFFATO & CIA LTDAARAPONGAS", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/07IRMAOS MUFFATO & CIA LTDAARAPONGAS", "regiao": "MUFFATO LONDRINA"}, {"cidade": "INDIANA", "regiao": "PRESID. PRUDENTE + VENCESLAU"}, {"cidade": "006591/9CIRMAOS MUFFATO & CIA LTDAMEDIANEIRA", "regiao": "MUFFATO MEDIANEIRA"}, {"cidade": "006591/46IRMAOS MUFFATO & CIA LTDAMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "001682/28BATISTA & IZEPE LTDAJANDAIA DO SUL", "regiao": "JANDAIA - L.J BOM DIA"}, {"cidade": "006591/54IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/18IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/35IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/08IRMAOS MUFFATO & CIA LTDACAMPO MOURAO", "regiao": "MUFFATO C. MOURAO"}, {"cidade": "006591/97IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/16IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/33IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/27IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/61IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/70IRMAOS MUFFATO & CIA LTDACAMBE", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/26IRMAOS MUFFATO & CIA LTDAIBIPORA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/69IRMAOS MUFFATO & CIA LTDAAPUCARANA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/72IRMAOS MUFFATO & CIA LTDACIANORTE", "regiao": "MUFFATO CIANORTE"}, {"cidade": "006591/A1IRMAOS MUFFATO & CIA LTDASARANDI", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/41IRMAOS MUFFATO & CIA LTDAPARANAVAI", "regiao": "MUFFATO PARANAVAI"}, {"cidade": "006591/02IRMAOS MUFFATO & CIA LTDAMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/62IRMAOS MUFFATO & CIA LTDAMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/03IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/17IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO LONDRINA"}, {"cidade": "006591/32IRMAOS MUFFATO & CIA LTDAMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "006591/05IRMAOS MUFFATO & CIA LTDAMARINGA", "regiao": "MUFFATO MGÁ"}, {"cidade": "058965/09STOCK ATACADISTA S.A.MARINGA", "regiao": "STOCK PAIÇANDU"}, {"cidade": "006591/75IRMAOS MUFFATO & CIA LTDALONDRINA", "regiao": "MUFFATO MGÁ"}];
+const REF_PERFIL = [{"regiao": "LONDRINA/REGIÃO", "perfil_min": "VUC EM DIANTE"}, {"regiao": "ARAPONGAS", "perfil_min": "VUC EM DIANTE"}, {"regiao": "FAXINAL", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "BELA VISTA", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "PORECATU", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "COLORADO 1", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "COLORADO 2", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "BANDEIRANTES", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "LOANDA", "perfil_min": "TRUCK EM DIANTE"}, {"regiao": "S. J DO CAIUA", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "PARANAVAI", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "FOOD MARINGÁ", "perfil_min": "VUC EM DIANTE"}, {"regiao": "UBIRATÃ", "perfil_min": "TRUCADINHA EM DIANTE"}, {"regiao": "CAMPO MOURÃO", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "BARBOSA/IRETAMA", "perfil_min": "TRUCADINHA EM DIANTE"}, {"regiao": "GOIOERÊ", "perfil_min": "TRUCADINHA EM DIANTE"}, {"regiao": "CIANORTE", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "DOURADINA", "perfil_min": "TRUCADINHA EM DIANTE"}, {"regiao": "UMUARAMA", "perfil_min": "TRUCADINHA EM DIANTE"}, {"regiao": "ALTONIA", "perfil_min": "TOCO EM DIANTE"}, {"regiao": "GUAIRÁ", "perfil_min": "TOCO EM DIANTE"}, {"regiao": "TELEMACO", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "PITANGA", "perfil_min": "TRUCADINHA EM DIANTE"}, {"regiao": "IVAIPORÃ", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "PRESID. PRUDENTE + VENCESLAU", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "PRESID. VENCESLAU", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "STOCK PAIÇANDU", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "GOIOERE", "perfil_min": "TRUCADINHA EM DIANTE"}, {"regiao": "RORATO  - NOVA ERA", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "STOCK SARANDI", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "BITRUCK FOZ+CASCAVEL", "perfil_min": "BITRUCK EM DIANTE"}, {"regiao": "GUAIRA", "perfil_min": "TRUCADINHA EM DIANTE"}, {"regiao": "LEJON MARINGÁ", "perfil_min": "VUC EM DIANTE"}, {"regiao": "STOCK ARAÇATUBA", "perfil_min": "TOCO EM DIANTE"}, {"regiao": "CASCAVEL", "perfil_min": "TOCO EM DIANTE"}, {"regiao": "MUFFATO UMUARAMA", "perfil_min": "TRUCADINHA EM DIANTE"}, {"regiao": "MUFFATO GUAIRA", "perfil_min": "TRUCADINHA EM DIANTE"}, {"regiao": "MUFFATO LONDRINA", "perfil_min": "VUC EM DIANTE"}, {"regiao": "MUFFATO MGÁ", "perfil_min": "VUC EM DIANTE"}, {"regiao": "MUFFATO CIANORTE", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "MUFFATO PARANAVAI", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "MUFFATO C. MOURAO", "perfil_min": "3/4 LEVE EM DIANTE"}, {"regiao": "MUFFATO MEDIANEIRA", "perfil_min": "TOCO EM DIANTE"}, {"regiao": "JANDAIA - L.J BOM DIA", "perfil_min": "VUC EM DIANTE"}];
+const REF_VENDEDORES = [{"nome": "A & D REPRESENTACOES COMERCIAIS LTDA", "apelido": "A & D"}, {"nome": "ALESSANDRA BORGATO", "apelido": "ALESSANDRA"}, {"nome": "ALEXANDRE ARAUJO PASCOAL", "apelido": "ALEXANDRE"}, {"nome": "ANA PAULA FROES DE CASTRO", "apelido": "ANA PAULA"}, {"nome": "BOIADEIRO REPRESENTACOES COMERCIAIS LTDA", "apelido": "BOIADEIRO"}, {"nome": "JULIANA CASTRO DO NASCIMENTO", "apelido": "JULIANA"}, {"nome": "MARCOS ANTONIO VOLANTE", "apelido": "MARCOS"}, {"nome": "RAFAEL DE OLIVEIRA GOMES", "apelido": "RAFAEL GOMES"}, {"nome": "JONATAS WESLEY RODRIGUES DOS SANTOS", "apelido": "JONATAS"}, {"nome": "SERGIO FABIANO NEIVERTH", "apelido": "SERGIO"}, {"nome": "RENAN VIEIRA BISTAFFA", "apelido": "RENAN"}, {"nome": "LUIZ HENRIQUE DOS SANTOS SALMASO", "apelido": "LUIZ SALMASSO"}, {"nome": "LUIZ MAURO FAN PEDROSO FILHO", "apelido": "PEDIDOS GT"}, {"nome": "MARGARETE APARECIDA OLIVEIRA DA SILVA", "apelido": "MARGA"}, {"nome": "MAICON DOUGLAS KARPOVICZ", "apelido": "MAICON"}, {"nome": "MATHEUS AUGUSTO LINJARDI PEREIRA", "apelido": "MATHEUS"}, {"nome": "JAIME ROBERTO PITTA", "apelido": "JAIME"}, {"nome": "TIAGO DE SOUZA MARTINS", "apelido": "TIAGO"}, {"nome": "RODRIGO BOFFETE DA SILVA", "apelido": "RODRIGO"}, {"nome": "TIAGO FERNANDO RADIN", "apelido": "TIAGO RADIN"}, {"nome": "ALEXANDRE CONSTANTIN FLORENCIO", "apelido": "ALEXANDRE CONST"}, {"nome": "ALEXANDRE RODRIGUES DE ANDRADE", "apelido": "ALEXANDRE RODRI"}, {"nome": "FERNANDO HENRIQUE DE FARIAS DOS SANTOS", "apelido": "FERNANDO HENRIQ"}, {"nome": "ALYSSON RICARDO LOPES", "apelido": "ALYSSON RICARDO"}, {"nome": "LEONARDO GONCALVES TORTOLA", "apelido": "LEONARDO GONCAL"}, {"nome": "JOAO VITOR ARENAS MARCATO", "apelido": "JOAO VITOR AREN"}, {"nome": "RAPHAEL MOREIRA DE ALMEIDA VIEIRA NETO", "apelido": "RAPHAEL MOREIRA"}, {"nome": "MARCOS RONEY FERNANDES", "apelido": "MARCOS RONEY FE"}, {"nome": "OCTAVIO AUGUSTO LONGO", "apelido": "OCTAVIO AUGUSTO"}, {"nome": "MAYCON RODRIGO PUPULIN", "apelido": "MAYCON RODRIGO"}, {"nome": "RODRIGO GLAUBER CORREA", "apelido": "RODRIGO GLAUBER"}];
+const REF_IQF_PRODUTOS = [{"cod": "FRCSCANMI000032", "iqf": "IQF"}, {"cod": "FRCSCANMI000059", "iqf": "IQF"}, {"cod": "FRCSCANMI000009", "iqf": "IQF"}, {"cod": "FRASCANMI000010", "iqf": "IQF"}, {"cod": "FRPTCANMI000054", "iqf": "IQF"}, {"cod": "FRPTCANMI000021", "iqf": "IQF"}, {"cod": "FRASCANMI000023", "iqf": "IQF"}, {"cod": "FRASCANMI000011", "iqf": "IQF"}, {"cod": "FRPTCANMI000010", "iqf": "IQF"}, {"cod": "FRPTCANMI000013", "iqf": "IQF"}, {"cod": "FRCSCANMI000011", "iqf": "IQF"}];
+/* ============================================================
+   CONFIGURAÇÃO
+   ============================================================ */
+const CONFIG = {
+  SHEET_ID: "1jwK1nzz2Oy4H6Ia9ooHhKGxkQK4YMTS9g4BvWBLWRG0",
+  BASE_SHEET_NAME: "Farol de Vendas Apuc", // nome exato da aba com a base bruta do Protheus
+  BD_SHEET_NAME: "BD",     // nome exato da aba BD (cidade -> região) — buscada ao vivo
+  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbwU5Kp0UKnO6DaTFT_KRWbkbgIs7Yf0hUhSaqCXELitL3c2ZCH8cqfhO22BJpIg6o-1/exec", // termina em /exec
+  REFRESH_MS: 3 * 60 * 1000,
+  FILIAL: "APUCARANA"
+};
+
+// Só usada se o Apps Script ainda não estiver configurado/alcançável
+// (ex: aqui dentro do preview do Claude) — pra você conseguir testar o layout.
+const DEMO_PASSWORDS = { admin: "admin2026" };
+let bdSource = "embutida"; // "ao vivo" quando a aba BD é lida com sucesso
+let bdRowCount = REF_BD.length;
+
+// Capacidade de caixas por veículo (kg de referência por unidade de veículo)
+const FLEET_TYPES = [
+  { key:"VAN", label:"VAN COMUM", group:"Leves", cap:1700 },
+  { key:"VUC", label:"VUC", group:"Leves", cap:2000 },
+  { key:"34",  label:"3/4", group:"Leves", cap:4500 },
+  { key:"TRUCADINHA", label:"TRUCADINHA", group:"Leves", cap:6500 },
+  { key:"TOCO", label:"TOCO", group:"Médios", cap:7500 },
+  { key:"TRUCK", label:"TRUCK", group:"Médios", cap:12500 },
+  { key:"BITRUCK", label:"BITRUCK", group:"Médios", cap:16000 },
+  { key:"CARRETA", label:"CARRETA", group:"Pesados", cap:30000 }
+];
+const DEFAULT_FLEET = {VAN:0,VUC:5,"34":6,TRUCADINHA:2,TOCO:1,TRUCK:1,BITRUCK:0,CARRETA:0};
+
+// Usado só quando o fetch externo falha (ex: dentro do preview do Claude),
+// pra você conseguir avaliar o layout mesmo sem conexão real com a planilha.
+const SAMPLE_DATA = {
+  filial: "APUCARANA (dados de exemplo)",
+  header: { volumePrevisto: 76475, qtdCaixas: 5378 },
+  totals: { falta: 0, pedido: 2987, liberado: 73438 },
+  rows: [
+    ["A & D","FAXINAL","3/4 LEVE EM DIANTE",1341,3,93,0,50,1291],
+    ["A & D","FOOD MARINGÁ","VUC EM DIANTE",3754,17,212,0,118,3636],
+    ["ALESSANDRA","MUFFATO MEDIANEIRA","TOCO EM DIANTE",550,1,55,0,0,550],
+    ["BOIADEIRO","ARAPONGAS","VUC EM DIANTE",1677,11,72,0,463,1214],
+    ["BOIADEIRO","BELA VISTA","3/4 LEVE EM DIANTE",4389,15,275,0,479,3910],
+    ["JAIME","PRESID. PRUDENTE + VENCESLAU","3/4 LEVE EM DIANTE",5329,44,469,0,150,5179],
+    ["JONATAS","LOANDA","TRUCK EM DIANTE",8112,25,600,0,340,7772],
+    ["SERGIO","FOOD MARINGÁ","VUC EM DIANTE",1536,31,123,0,0,1536],
+    ["TIAGO RADIN","FOOD MARINGÁ","VUC EM DIANTE",625,12,52,0,10,615]
+  ],
+  regionSummary: [
+    ["FOOD MARINGÁ",87,10969],["LOANDA",25,8112],["UMUARAMA",32,7919],
+    ["LONDRINA/REGIÃO",45,5576],["DOURADINA",40,5371],["FAXINAL",26,4504]
+  ],
+  regionTotal: [255, 42451],
+  iqfSummary: [
+    ["LOANDA",349,3490],["PRESID. PRUDENTE + VENCESLAU",224,2290],["DOURADINA",178,1810]
+  ],
+  iqfTotal: [751, 7590],
+  unresolvedCount: 0, unresolvedCities: [],
+  lineItems: [
+    { vendedor:"A & D", pedido:"196001", cliente:"001234/01", clienteNome:"MERCADO SÃO JOSÉ LTDA", cidade:"FAXINAL", regiao:"FAXINAL", peso:1341, cx:93, status:"liberado", isIqf:false },
+    { vendedor:"A & D", pedido:"196045", cliente:"005512/02", clienteNome:"IRMAOS MUFFATO & CIA LTDA", cidade:"MARINGA", regiao:"FOOD MARINGÁ", peso:2200, cx:110, status:"liberado", isIqf:false },
+    { vendedor:"A & D", pedido:"196050", cliente:"005512/03", clienteNome:"IRMAOS MUFFATO & CIA LTDA", cidade:"MARINGA", regiao:"FOOD MARINGÁ", peso:1554, cx:102, status:"pedido", isIqf:true },
+    { vendedor:"JONATAS", pedido:"197201", cliente:"008812/01", clienteNome:"ADEGA ESPANHOLA LTDA", cidade:"LOANDA", regiao:"LOANDA", peso:8112, cx:600, status:"liberado", isIqf:true }
+  ]
+};
+
+/* ============================================================
+   LOOKUPS (baseados nas mesmas fórmulas da sua planilha)
+   ============================================================ */
+function normKey(s){
+  if(s===undefined||s===null) return "";
+  return String(s).trim().toUpperCase();
+}
+const bdMap = new Map();
+function rebuildBdMap(list){
+  bdMap.clear();
+  list.forEach(r => { const k = normKey(r.cidade); if(k && !bdMap.has(k)) bdMap.set(k, r.regiao); });
+}
+rebuildBdMap(REF_BD);
+
+// Tenta ler a aba BD ao vivo (via Apps Script). Se falhar (backend não
+// configurado, aba não existe, cabeçalho diferente etc.), mantém a cópia
+// embutida como backup. De quebra, também extrai o Perfil Mínimo (2ª coluna
+// "PERFIL MIN", cruzando por "REGIÃO V") da mesma leitura — sem precisar de
+// uma aba separada.
+async function loadBdFromSheet(){
+  try{
+    if(!CONFIG.APPS_SCRIPT_URL || CONFIG.APPS_SCRIPT_URL.includes("COLE_AQUI")) throw new Error("backend não configurado");
+    const res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=bdData`);
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || "erro desconhecido");
+    const rows = data.rows;
+    let headerIdx=-1, cidadeIdx=-1, regiaoIdx=-1, perfilIdx=-1;
+    for(let i=0;i<Math.min(rows.length,6);i++){
+      const normed = (rows[i]||[]).map(normHeader);
+      const ci = normed.indexOf("cidade");
+      const ri = normed.findIndex(h => h.startsWith("regiao"));
+      if(ci>=0 && ri>=0){
+        headerIdx = i; cidadeIdx = ci; regiaoIdx = ri;
+        // duas colunas "PERFIL MIN" -> pega a ÚLTIMA ocorrência (a coluna I)
+        const perfilIdxs = normed.reduce((acc,h,idx)=>{ if(h.startsWith("perfilmin")) acc.push(idx); return acc; }, []);
+        perfilIdx = perfilIdxs.length ? perfilIdxs[perfilIdxs.length-1] : -1;
+        break;
+      }
+    }
+    if(headerIdx===-1) throw new Error(`cabeçalho CIDADE/REGIÃO não encontrado na aba "${CONFIG.BD_SHEET_NAME}"`);
+
+    const list = [];
+    const perfilByRegiao = new Map();
+    for(let i=headerIdx+1;i<rows.length;i++){
+      const cidade = rows[i][cidadeIdx];
+      const regiao = rows[i][regiaoIdx];
+      if(cidade && regiao) list.push({cidade, regiao});
+      if(perfilIdx>=0 && regiao){
+        const perfil = rows[i][perfilIdx];
+        const perfilOk = perfil && String(perfil).trim() && String(perfil).trim().toUpperCase() !== "#N/A";
+        if(perfilOk && !perfilByRegiao.has(normKey(regiao))) perfilByRegiao.set(normKey(regiao), perfil);
+      }
+    }
+    if(list.length===0) throw new Error("nenhuma linha de dados encontrada");
+    rebuildBdMap(list);
+    bdSource = "ao vivo";
+    bdRowCount = list.length;
+
+    if(perfilIdx>=0 && perfilByRegiao.size>0){
+      perfilMap.clear();
+      perfilByRegiao.forEach((v,k) => perfilMap.set(k, v));
+      perfilSource = "ao vivo (aba BD)";
+      perfilRowCount = perfilByRegiao.size;
+    }else{
+      rebuildPerfilMap(REF_PERFIL);
+      perfilSource = "embutida (backup)";
+      perfilRowCount = REF_PERFIL.length;
+    }
+  }catch(e){
+    console.warn("BD ao vivo indisponível, usando cópia embutida:", e.message);
+    rebuildBdMap(REF_BD);
+    bdSource = "embutida (backup)";
+    bdRowCount = REF_BD.length;
+    rebuildPerfilMap(REF_PERFIL);
+    perfilSource = "embutida (backup)";
+    perfilRowCount = REF_PERFIL.length;
+  }
+}
+
+const perfilMap = new Map();
+function rebuildPerfilMap(list){
+  perfilMap.clear();
+  list.forEach(r => perfilMap.set(normKey(r.regiao), r.perfil_min));
+}
+rebuildPerfilMap(REF_PERFIL);
+let perfilSource = "embutida";
+let perfilRowCount = REF_PERFIL.length;
+
+const vendedorMap = new Map();
+REF_VENDEDORES.forEach(r => vendedorMap.set(normKey(r.nome), r.apelido));
+
+const iqfSet = new Set();
+REF_IQF_PRODUTOS.forEach(r => iqfSet.add(normKey(r.cod)));
+
+// A = IFERROR(IF(C>"",C,IF(D>"",D,VLOOKUP(Cidade,BD,Região))),"")
+function resolveRegiao(razaoSocial, clienteLoja, cidade){
+  const byRazao = bdMap.get(normKey(razaoSocial));
+  if(byRazao) return byRazao;
+  const byCombo = bdMap.get(normKey(String(clienteLoja||"")+String(razaoSocial||"")+String(cidade||"")));
+  if(byCombo) return byCombo;
+  const byCidade = bdMap.get(normKey(cidade));
+  if(byCidade) return byCidade;
+  return "";
+}
+// B = VLOOKUP(Vendedor, BASE VENDEDORES, apelido) com fallback LEFT(nome,15)
+function resolveApelido(nomeCompleto){
+  const k = normKey(nomeCompleto);
+  if(vendedorMap.has(k)) return vendedorMap.get(k);
+  return String(nomeCompleto||"").trim().slice(0,15);
+}
+
+/* ============================================================
+   PARSE DE NÚMEROS (formato BR)
+   ============================================================ */
+function parseNumber(str){
+  if(str===undefined||str===null) return 0;
+  str = String(str).trim();
+  if(str==="") return 0;
+  str = str.replace(/[^\d.,-]/g,"");
+  if(str.includes(",") && str.includes(".")) str = str.replace(/\./g,"").replace(",",".");
+  else if(/\.\d{3}(\D|$)/.test(str) && !str.includes(",")) str = str.replace(/\./g,"");
+  else if(str.includes(",")) str = str.replace(",",".");
+  const n = parseFloat(str);
+  return isNaN(n) ? 0 : n;
+}
+function fmt(n){
+  if(n===null||n===undefined||n==="") return "";
+  return Number(n).toLocaleString("pt-BR", {maximumFractionDigits:0});
+}
+
+/* ============================================================
+   CSV / HEADER MATCHING
+   ============================================================ */
+function normHeader(s){
+  return String(s||"").toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-z0-9]/g,"");
+}
+const HEADER_TARGETS = {
+  vendedor: "vendedor",
+  pedido: "pedido",
+  clienteLoja: "clienteloja",
+  razaoSocial: "razaosocial",
+  cidade: "cidade",
+  codProduto: "codproduto",
+  qtdLiberada: "qtdliberada",
+  pesoCx: "pesocx",
+  gestao: "gestaodepedidos",
+  saldoSemGestao: "saldosemgestao"
+};
+
+function buildColumnMap(headerRow){
+  const normed = headerRow.map(normHeader);
+  const map = {};
+  for(const [field, target] of Object.entries(HEADER_TARGETS)){
+    let idx = normed.indexOf(target);
+    map[field] = idx; // -1 if not found
+  }
+  return map;
+}
+
+/* ============================================================
+   MOTOR DE CÁLCULO — replica as fórmulas da aba ARQ.SIST + REGIÃO
+   ============================================================ */
+function computeDashboard(rawRows, colMap){
+  let volumePrevisto = 0;   // SUM(N:N) -> todas as linhas, sempre
+  let qtdCaixasTotal = 0;   // SUM(J:J) -> só linhas com região resolvida
+
+  const groups = new Map();       // vendedor||regiao -> {peso, cx, clientesSet, falta, pedido, liberado}
+  const regionSummary = new Map(); // regiao -> {clientesSet, peso}
+  const iqfSummary = new Map();    // regiao -> {cx, peso}
+  const totalStatus = { falta:0, pedido:0, liberado:0 };
+  let unresolvedCount = 0;
+  const unresolvedCities = new Map(); // cidade -> {count, exemploCliente}
+  const lineItems = []; // uma linha por pedido bruto, usado no detalhamento por vendedor
+
+  for(const row of rawRows){
+    const vendedorNome = row[colMap.vendedor];
+    const pedidoNum     = row[colMap.pedido];
+    const clienteLoja  = row[colMap.clienteLoja];
+    const razaoSocial  = row[colMap.razaoSocial];
+    const cidade       = row[colMap.cidade];
+    const codProduto   = row[colMap.codProduto];
+    const qtdLiberadaRaw = row[colMap.qtdLiberada];
+    const pesoCxRaw    = row[colMap.pesoCx];
+    const gestao       = row[colMap.gestao];
+    const saldoSemGestaoRaw = row[colMap.saldoSemGestao];
+
+    if(vendedorNome === undefined || vendedorNome === "" ) continue;
+
+    const qtdLiberada = parseNumber(qtdLiberadaRaw);
+    const pesoCx = parseNumber(pesoCxRaw);
+    const saldoSemGestao = parseNumber(saldoSemGestaoRaw);
+
+    // N = Qtd Liberada + Saldo sem Gestão  (sempre computado)
+    const N = qtdLiberada + saldoSemGestao;
+    volumePrevisto += N;
+
+    const regiao = resolveRegiao(razaoSocial, clienteLoja, cidade);
+    if(!regiao){
+      unresolvedCount++;
+      const ck = normKey(cidade) || "(cidade em branco)";
+      if(!unresolvedCities.has(ck)) unresolvedCities.set(ck, { cidade: cidade || "(em branco)", count:0, exemploCliente: razaoSocial || "" });
+      unresolvedCities.get(ck).count++;
+      continue;
+    }
+
+    const apelido = resolveApelido(vendedorNome);
+
+    // J = AG / AI  (qtd de caixas)
+    const J = pesoCx ? (qtdLiberada / pesoCx) : qtdLiberada;
+    qtdCaixasTotal += J;
+
+    // M = status do farol
+    let status;
+    if(String(gestao||"").trim().toUpperCase() === "FALTA DE SALDO") status = "falta";
+    else if(qtdLiberada === 0) status = "pedido";
+    else status = "liberado";
+
+    totalStatus[status] += N;
+
+    // grupo vendedor+região (tabela principal)
+    const gkey = apelido + "||" + regiao;
+    if(!groups.has(gkey)) groups.set(gkey, { vendedor: apelido, regiao, peso:0, cx:0, clientes:new Set(), falta:0, pedido:0, liberado:0 });
+    const g = groups.get(gkey);
+    g.peso += N;
+    g.cx += J;
+    if(clienteLoja) g.clientes.add(clienteLoja);
+    g[status] += N;
+
+    // resumo por região (todos os vendedores)
+    if(!regionSummary.has(regiao)) regionSummary.set(regiao, { clientes:new Set(), peso:0 });
+    const rs = regionSummary.get(regiao);
+    rs.peso += N;
+    if(clienteLoja) rs.clientes.add(clienteLoja);
+
+    // resumo por IQF (só produtos marcados como IQF)
+    const isIqf = iqfSet.has(normKey(codProduto));
+    if(isIqf){
+      if(!iqfSummary.has(regiao)) iqfSummary.set(regiao, { cx:0, peso:0 });
+      const iq = iqfSummary.get(regiao);
+      iq.cx += J;
+      iq.peso += N;
+    }
+
+    lineItems.push({
+      vendedor: apelido, pedido: pedidoNum || "", cliente: clienteLoja || "",
+      clienteNome: razaoSocial || "", cidade: cidade || "", regiao, peso: N, cx: J, status, isIqf
+    });
+  }
+
+  const rows = Array.from(groups.values()).map(g => ([
+    g.vendedor, g.regiao, perfilMap.get(normKey(g.regiao)) || "—",
+    Math.round(g.peso), g.clientes.size, Math.round(g.cx*10)/10,
+    Math.round(g.falta), Math.round(g.pedido), Math.round(g.liberado)
+  ])).sort((a,b)=> a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]));
+
+  const regionRows = Array.from(regionSummary.entries())
+    .map(([regiao, v]) => [regiao, v.clientes.size, Math.round(v.peso)])
+    .sort((a,b)=> b[2]-a[2]);
+  const regionTotal = [
+    new Set(rawRows.flatMap(r => r[colMap.clienteLoja] ? [r[colMap.clienteLoja]] : [])).size,
+    Math.round(regionRows.reduce((s,r)=>s+r[2],0))
+  ];
+
+  const iqfRows = Array.from(iqfSummary.entries())
+    .map(([regiao, v]) => [regiao, Math.round(v.cx*10)/10, Math.round(v.peso)])
+    .sort((a,b)=> b[2]-a[2]);
+  const iqfTotal = [
+    Math.round(iqfRows.reduce((s,r)=>s+r[1],0)*10)/10,
+    Math.round(iqfRows.reduce((s,r)=>s+r[2],0))
+  ];
+
+  return {
+    filial: CONFIG.FILIAL,
+    header: { volumePrevisto: Math.round(volumePrevisto), qtdCaixas: Math.round(qtdCaixasTotal) },
+    totals: { falta: Math.round(totalStatus.falta), pedido: Math.round(totalStatus.pedido), liberado: Math.round(totalStatus.liberado) },
+    rows, regionSummary: regionRows, regionTotal,
+    iqfSummary: iqfRows, iqfTotal,
+    unresolvedCount,
+    unresolvedCities: Array.from(unresolvedCities.values()).sort((a,b)=>b.count-a.count),
+    lineItems
+  };
+}
+
+/* ============================================================
+   DETALHAMENTO POR VENDEDOR (usado quando a busca acha 1 vendedor só)
+   ============================================================ */
+function buildVendorDetail(lineItems, vendedorApelido){
+  const items = lineItems.filter(li => li.vendedor === vendedorApelido);
+
+  // um pedido pode ter várias linhas de produto -> agrupa por número do pedido
+  const porPedido = new Map();
+  items.forEach(li => {
+    const key = li.pedido || (li.cliente + "|" + li.cidade + "|" + li.regiao);
+    if(!porPedido.has(key)) porPedido.set(key, {
+      pedido: li.pedido, cliente: li.cliente, clienteNome: li.clienteNome,
+      cidade: li.cidade, regiao: li.regiao, peso: 0, status: li.status
+    });
+    const p = porPedido.get(key);
+    p.peso += li.peso;
+    // se qualquer linha do pedido estiver liberada, considera o pedido liberado
+    const priority = { liberado: 2, pedido: 1, falta: 0 };
+    if(priority[li.status] > priority[p.status]) p.status = li.status;
+  });
+  const pedidos = Array.from(porPedido.values()).sort((a,b)=> b.peso - a.peso);
+
+  const regionMap = new Map();
+  const iqfMap = new Map();
+  items.forEach(li => {
+    if(!regionMap.has(li.regiao)) regionMap.set(li.regiao, { clientes:new Set(), peso:0 });
+    const r = regionMap.get(li.regiao);
+    r.peso += li.peso;
+    if(li.cliente) r.clientes.add(li.cliente);
+    if(li.isIqf){
+      if(!iqfMap.has(li.regiao)) iqfMap.set(li.regiao, { cx:0, peso:0 });
+      const iq = iqfMap.get(li.regiao);
+      iq.cx += li.cx;
+      iq.peso += li.peso;
+    }
+  });
+  const regionRows = Array.from(regionMap.entries()).map(([regiao,v])=>[regiao, v.clientes.size, Math.round(v.peso)]).sort((a,b)=>b[2]-a[2]);
+  const iqfRows = Array.from(iqfMap.entries()).map(([regiao,v])=>[regiao, Math.round(v.cx*10)/10, Math.round(v.peso)]).sort((a,b)=>b[2]-a[2]);
+
+  const totals = { falta:0, pedido:0, liberado:0 };
+  items.forEach(li => { totals[li.status] += li.peso; });
+
+  return {
+    pedidos,
+    regionSummary: regionRows,
+    regionTotal: [new Set(items.map(i=>i.cliente).filter(Boolean)).size, Math.round(regionRows.reduce((s,r)=>s+r[2],0))],
+    iqfSummary: iqfRows,
+    iqfTotal: [Math.round(iqfRows.reduce((s,r)=>s+r[1],0)*10)/10, Math.round(iqfRows.reduce((s,r)=>s+r[2],0))],
+    totals: { falta: Math.round(totals.falta), pedido: Math.round(totals.pedido), liberado: Math.round(totals.liberado) }
+  };
+}
+/* ============================================================
+   ESTADO
+   ============================================================ */
+let latestData = null;
+let usingSample = false;
+let fleet = { ...DEFAULT_FLEET };
+let usingDemoAuth = false;
+
+function apiUrl(action){
+  return `${CONFIG.APPS_SCRIPT_URL}${action ? "?action="+action : ""}`;
+}
+function backendConfigured(){
+  return CONFIG.APPS_SCRIPT_URL && !CONFIG.APPS_SCRIPT_URL.includes("COLE_AQUI");
+}
+async function apiPost(payload, timeoutMs){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs || 15000);
+  try{
+    const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" }, // evita preflight CORS no Apps Script
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    return await res.json();
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+/* ============================================================
+   ARMAZENAMENTO LOCAL (só pra manter a pessoa logada; não é a
+   fonte da verdade — a senha é sempre reconferida no servidor)
+   ============================================================ */
+function safeStorageGet(key){
+  try{ return localStorage.getItem(key); }catch(e){ return null; }
+}
+function safeStorageSet(key, val){
+  try{ localStorage.setItem(key, val); }catch(e){ /* ignorado (ex: preview do Claude) */ }
+}
+function safeStorageRemove(key){
+  try{ localStorage.removeItem(key); }catch(e){ /* ignorado */ }
+}
+
+/* ============================================================
+   AUTENTICAÇÃO — a senha é conferida NO SERVIDOR (Apps Script),
+   o hash nunca é enviado pro navegador.
+   ============================================================ */
+/* ============================================================
+   SENHA DE ADMINISTRADOR — só protege "Editar frota". O resto do
+   painel (visualizar + buscar) é livre pra qualquer um com o link.
+   ============================================================ */
+let adminPassword = null; // guardada só em memória/local, usada pra autenticar gravações
+let fleetUnlocked = false;
+
+function requestFleetEdit(){
+  if(fleetUnlocked){ openFleetModal(); return; }
+  const cached = safeStorageGet("farol_admin_pwd");
+  if(cached){ adminPassword = cached; fleetUnlocked = true; onFleetUnlocked(); openFleetModal(); return; }
+  document.getElementById("pwdInput").value = "";
+  document.getElementById("pwdError").style.display = "none";
+  document.getElementById("pwdModal").classList.add("show");
+  setTimeout(()=>document.getElementById("pwdInput").focus(), 50);
+}
+function closePwdModal(){
+  document.getElementById("pwdModal").classList.remove("show");
+}
+
+async function checkFleetPassword(){
+  const val = document.getElementById("pwdInput").value;
+  const errBox = document.getElementById("pwdError");
+  const btn = document.getElementById("pwdBtn");
+  errBox.style.display = "none";
+  if(!val){ errBox.textContent = "Digite a senha."; errBox.style.display = "block"; return; }
+
+  btn.disabled = true;
+  btn.textContent = "Verificando...";
+  try{
+    if(backendConfigured()){
+      try{
+        const data = await apiPost({ action:"login", password: val }, 10000);
+        if(data.ok){
+          adminPassword = val;
+          fleetUnlocked = true;
+          safeStorageSet("farol_admin_pwd", val);
+          closePwdModal();
+          onFleetUnlocked();
+          openFleetModal();
+          return;
+        }
+        errBox.textContent = "Senha incorreta.";
+        errBox.style.display = "block";
+        return;
+      }catch(networkErr){
+        console.warn("Backend inalcançável/demorou demais, tentando modo demo:", networkErr.message);
+      }
+    }
+    // Backend não configurado, ou inacessível/lento demais -> senha de demonstração
+    if(val === DEMO_PASSWORDS.admin){
+      adminPassword = val;
+      fleetUnlocked = true;
+      usingDemoAuth = true;
+      safeStorageSet("farol_admin_pwd", val);
+      closePwdModal();
+      onFleetUnlocked();
+      openFleetModal();
+    }else{
+      errBox.textContent = "Não consegui confirmar a senha (sem conexão com o servidor). Verifique sua internet e tente de novo.";
+      errBox.style.display = "block";
+    }
+  }catch(unexpected){
+    console.error("Erro inesperado:", unexpected);
+    errBox.textContent = "Erro inesperado. Tente novamente.";
+    errBox.style.display = "block";
+  }finally{
+    btn.disabled = false;
+    btn.textContent = "Entrar";
+  }
+}
+
+function onFleetUnlocked(){
+  document.getElementById("passwordsBtn").style.display = "inline-flex";
+}
+
+/* ============================================================
+   FROTA — lida e salva no backend (Google Sheets via Apps Script)
+   ============================================================ */
+async function loadFleet(){
+  if(!backendConfigured()) return; // fica no DEFAULT_FLEET
+  try{
+    const res = await fetch(apiUrl("fleet"));
+    const data = await res.json();
+    if(data.ok) fleet = data.fleet;
+  }catch(e){
+    console.warn("Frota: sem conexão com o backend, usando valores padrão:", e.message);
+  }
+}
+async function saveFleet(){
+  const form = document.getElementById("fleetForm");
+  const newFleet = {};
+  FLEET_TYPES.forEach(t => {
+    const input = form.querySelector(`[data-key="${t.key}"]`);
+    newFleet[t.key] = parseInt(input.value || "0", 10);
+  });
+  fleet = newFleet;
+  if(backendConfigured()){
+    try{
+      const data = await apiPost({ action:"saveFleet", password: adminPassword, fleet: newFleet });
+      if(!data.ok) alert("Não consegui salvar no servidor: " + (data.error||"erro desconhecido"));
+    }catch(e){
+      alert("Sem conexão com o servidor — a frota só foi atualizada aqui nessa tela, não foi salva pra todo mundo.");
+    }
+  }
+  closeFleetModal();
+  renderFleet();
+}
+
+/* ============================================================
+   TROCA DE SENHA DE ADMINISTRADOR
+   ============================================================ */
+function openPasswordsModal(){
+  document.getElementById("currentAdminPwd").value = "";
+  document.getElementById("newAdminPwd").value = "";
+  document.getElementById("pwdChangeMsg").style.display = "none";
+  document.getElementById("passwordsModal").classList.add("show");
+}
+function closePasswordsModal(){
+  document.getElementById("passwordsModal").classList.remove("show");
+}
+async function savePassword(){
+  if(!backendConfigured()){
+    alert("Configure o CONFIG.APPS_SCRIPT_URL primeiro — sem backend não dá pra salvar senha nova de verdade.");
+    return;
+  }
+  const current = document.getElementById("currentAdminPwd").value.trim();
+  const novaSenha = document.getElementById("newAdminPwd").value.trim();
+  const msg = document.getElementById("pwdChangeMsg");
+  msg.style.display = "block";
+
+  if(!current || !novaSenha){
+    msg.style.color = "var(--orange)";
+    msg.textContent = "Preencha a senha atual e a nova senha.";
+    return;
+  }
+
+  msg.style.color = "var(--ink)";
+  msg.textContent = "Salvando...";
+  try{
+    const r = await apiPost({ action:"changePassword", masterPassword: current, target:"admin", newPassword: novaSenha });
+    if(r.ok){
+      msg.style.color = "var(--green)";
+      msg.textContent = "Senha atualizada com sucesso!";
+      adminPassword = novaSenha;
+      safeStorageSet("farol_admin_pwd", novaSenha);
+      setTimeout(closePasswordsModal, 1200);
+    }else{
+      msg.style.color = "var(--red)";
+      msg.textContent = "Erro: " + (r.error || "não foi possível trocar a senha");
+    }
+  }catch(e){
+    msg.style.color = "var(--red)";
+    msg.textContent = "Sem conexão com o servidor: " + e.message;
+  }
+}
+
+function openFleetModal(){
+  const form = document.getElementById("fleetForm");
+  form.innerHTML = FLEET_TYPES.map(t => `
+    <div><label>${t.label}</label><input type="number" min="0" data-key="${t.key}" value="${fleet[t.key]||0}"></div>
+  `).join("");
+  document.getElementById("fleetModal").classList.add("show");
+}
+function closeFleetModal(){
+  document.getElementById("fleetModal").classList.remove("show");
+}
+
+/* ============================================================
+   CARREGAR BASE BRUTA DO GOOGLE SHEETS
+   ============================================================ */
+async function loadData(){
+  const btn = document.getElementById("refreshBtn");
+  if(btn) btn.textContent = "⟳ Atualizando...";
+  try{
+    if(!backendConfigured()) throw new Error("backend não configurado (CONFIG.APPS_SCRIPT_URL)");
+    const res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=baseData`);
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || "erro desconhecido");
+    const parsed = data.rows.filter(r => r.length>1 && r.some(c=>c!==""));
+    if(parsed.length < 2) throw new Error("planilha vazia ou sem dados reconhecíveis");
+    const header = parsed[0];
+    const colMap = buildColumnMap(header);
+    const missing = Object.entries(colMap).filter(([k,v])=>v===-1).map(([k])=>k);
+    if(missing.length > 3) throw new Error("colunas não reconhecidas: "+missing.join(", "));
+    const dataRows = parsed.slice(1);
+    latestData = computeDashboard(dataRows, colMap);
+    usingSample = false;
+    setStatus(true, `conectado · ${dataRows.length} linhas lidas`);
+  }catch(err){
+    console.error(err);
+    setStatus(false, "sem conexão com a planilha — mostrando dados de exemplo");
+    latestData = JSON.parse(JSON.stringify(SAMPLE_DATA));
+    usingSample = true;
+  }
+  render();
+  if(btn) btn.textContent = "↻ Atualizar";
+}
+
+function setStatus(ok, msg){
+  const meta = document.getElementById("metaBox");
+  meta.classList.toggle("err", !ok);
+  document.getElementById("statusText").textContent = msg;
+  document.getElementById("lastUpdate").textContent = new Date().toLocaleTimeString("pt-BR");
+  document.getElementById("lastUpdate").title = `BD: ${bdSource} (${bdRowCount} cidades)`;
+  document.getElementById("footer").textContent = ok
+    ? "Dados ao vivo da planilha Google Sheets · atualiza automaticamente"
+    : "Aviso: " + msg;
+  const banner = document.getElementById("bannerArea");
+  let html = "";
+
+  if(usingDemoAuth){
+    html += `<div class="banner">🔑 <b>Login em modo de demonstração</b> — o backend de senhas (Apps Script) ainda não está configurado ou não foi possível alcançá-lo daqui. As senhas de demonstração continuam valendo, mas trocas de senha e frota não estão sendo salvas de verdade pra todo mundo. Configure CONFIG.APPS_SCRIPT_URL depois de publicar o script.</div>`;
+  }
+
+  if(usingSample){
+    html += `<div class="banner">👀 <b>Modo de demonstração</b> — não foi possível conectar com a planilha real a partir daqui (isso é esperado dentro do preview do Claude). Os dados abaixo são só de exemplo, pra você avaliar o layout. Hospede o arquivo (ex: Netlify) pra ver os dados reais.</div>`;
+  } else if(!ok){
+    html += `<div class="banner">⚠ ${msg}. Verifique se a planilha está compartilhada como "Qualquer pessoa com o link → Leitor" e se a aba se chama exatamente "${CONFIG.BASE_SHEET_NAME}" (CONFIG.BASE_SHEET_NAME).</div>`;
+  }
+
+  if(!usingSample && bdSource !== "ao vivo"){
+    html += `<div class="banner">⚠ Não consegui ler a aba "${CONFIG.BD_SHEET_NAME}" ao vivo — usando cópia de backup (${bdRowCount} cidades). Confirme se existe uma aba com esse nome exato na planilha, com colunas "CIDADE" e "REGIÃO".</div>`;
+  }
+  if(!usingSample && perfilSource !== "ao vivo (aba BD)"){
+    html += `<div class="banner">⚠ Não consegui extrair o "Perfil Mínimo" da aba "${CONFIG.BD_SHEET_NAME}" (coluna I, cruzando por REGIÃO V) — usando cópia de backup (${perfilRowCount} regiões).</div>`;
+  }
+
+  if(latestData && latestData.unresolvedCities && latestData.unresolvedCities.length){
+    const list = latestData.unresolvedCities.slice(0, 15)
+      .map(u => `<li><b>${u.cidade}</b> — ${u.count} pedido(s) · ex: ${u.exemploCliente}</li>`).join("");
+    html += `<div class="banner">⚠ <b>${latestData.unresolvedCount} pedido(s)</b> não entraram no painel por região não mapeada. Adicione essas cidades na aba "${CONFIG.BD_SHEET_NAME}":<ul style="margin:6px 0 0 18px;padding:0;">${list}</ul>${latestData.unresolvedCities.length>15?`<div style="margin-top:4px;">+ ${latestData.unresolvedCities.length-15} outra(s)...</div>`:""}</div>`;
+  }
+  banner.innerHTML = html;
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function renderFleet(){
+  const groups = ["Leves","Médios","Pesados"];
+  document.getElementById("fleetGroups").innerHTML = groups.map(g => {
+    const cols = FLEET_TYPES.filter(t => t.group === g);
+    return `<div class="fleet-card">
+      <table>
+        <thead><tr><th class="rowlabel">${g}</th>${cols.map(c=>`<th>${c.label}</th>`).join("")}</tr></thead>
+        <tbody>
+          <tr class="qty"><td class="rowlabel">Qtd. veículos</td>${cols.map(c=>`<td>${fmt(fleet[c.key]||0)}</td>`).join("")}</tr>
+          <tr class="cap"><td class="rowlabel">Cap. (kg)</td>${cols.map(c=>`<td>${fmt((fleet[c.key]||0)*c.cap)}</td>`).join("")}</tr>
+        </tbody>
+      </table>
+    </div>`;
+  }).join("");
+}
+
+function render(){
+  const d = latestData;
+  document.getElementById("filialName").textContent = d.filial;
+
+  const qtdVeiculos = Object.values(fleet).reduce((s,v)=>s+(v||0),0);
+  const capEmbarque = FLEET_TYPES.reduce((s,t)=> s + (fleet[t.key]||0)*t.cap, 0);
+
+  document.getElementById("cards").innerHTML = `
+    <div class="card"><div class="lbl">Volume previsto</div><div class="val">${fmt(d.header.volumePrevisto)}</div></div>
+    <div class="card"><div class="lbl">Qtd veículos</div><div class="val">${fmt(qtdVeiculos)}</div></div>
+    <div class="card"><div class="lbl">Qtd caixas (pedidas)</div><div class="val">${fmt(d.header.qtdCaixas)}</div></div>
+    <div class="card"><div class="lbl">Cap. embarque (kg)</div><div class="val">${fmt(capEmbarque)}</div></div>
+  `;
+
+  renderFleet();
+
+  renderLegend(d.totals, null);
+
+  renderTable();
+}
+
+function renderLegend(totals, vendedor){
+  const suffix = vendedor ? ` — ${vendedor}` : "";
+  document.getElementById("legend").innerHTML = `
+    <div class="pill red">Falta de saldo${suffix} <span class="n">${fmt(totals.falta)}</span></div>
+    <div class="pill orange">Pedido s/gestão${suffix} <span class="n">${fmt(totals.pedido)}</span></div>
+    <div class="pill green">Liberado${suffix} <span class="n">${fmt(totals.liberado)}</span></div>
+  `;
+}
+
+function badge(val, type){
+  if(!val) return `<span class="badge zero">0</span>`;
+  return `<span class="badge ${type}">${fmt(val)}</span>`;
+}
+
+function renderTable(){
+  if(!latestData) return;
+  const q = document.getElementById("searchInput").value.trim().toLowerCase();
+  const body = document.getElementById("mainTableBody");
+  const rows = latestData.rows.filter(r =>
+    !q || r[0].toLowerCase().includes(q) || r[1].toLowerCase().includes(q)
+  );
+  if(rows.length===0){
+    body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">Nenhum resultado</td></tr>`;
+  }else{
+    body.innerHTML = rows.map(r => {
+      const match = q && r[0].toLowerCase().includes(q);
+      return `<tr class="${match?'match':''}">
+        <td class="vendor-name">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td>
+        <td class="num">${fmt(r[3])}</td><td class="num">${fmt(r[4])}</td><td class="num">${fmt(r[5])}</td>
+        <td class="num">${badge(r[6],"red")}</td><td class="num">${badge(r[7],"orange")}</td><td class="num">${badge(r[8],"green")}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  // identifica se a busca aponta pra exatamente 1 vendedor -> ativa modo detalhado
+  const matchedVendors = new Set(rows.filter(r=>q && r[0].toLowerCase().includes(q)).map(r=>r[0]));
+  if(q && matchedVendors.size === 1){
+    const vendedor = Array.from(matchedVendors)[0];
+    renderVendorDetail(vendedor);
+  }else{
+    document.getElementById("vendorDetailSection").style.display = "none";
+    document.getElementById("regionTableTitle").textContent = "Peso agrupado por região";
+    document.getElementById("iqfTableTitle").textContent = "Peso agrupado por IQF";
+    renderLegend(latestData.totals, null);
+    document.getElementById("regionTableBody").innerHTML =
+      latestData.regionSummary.map(r => `<tr><td>${r[0]}</td><td class="num">${fmt(r[1])}</td><td class="num">${fmt(r[2])}</td></tr>`).join("")
+      + `<tr class="total"><td>Total Geral</td><td class="num">${fmt(latestData.regionTotal[0])}</td><td class="num">${fmt(latestData.regionTotal[1])}</td></tr>`;
+    document.getElementById("iqfTableBody").innerHTML =
+      latestData.iqfSummary.map(r => `<tr><td>${r[0]}</td><td class="num">${fmt(r[1])}</td><td class="num">${fmt(r[2])}</td></tr>`).join("")
+      + `<tr class="total"><td>Total Geral</td><td class="num">${fmt(latestData.iqfTotal[0])}</td><td class="num">${fmt(latestData.iqfTotal[1])}</td></tr>`;
+  }
+}
+
+const STATUS_LABEL = { liberado: ["Liberado","green"], pedido: ["Pedido s/gestão","orange"], falta: ["Falta de saldo","red"] };
+
+function renderVendorDetail(vendedor){
+  const detail = buildVendorDetail(latestData.lineItems, vendedor);
+
+  document.getElementById("vendorDetailSection").style.display = "block";
+  document.getElementById("vendorDetailTitle").textContent = `Pedidos de ${vendedor}`;
+  const body = document.getElementById("vendorDetailBody");
+  if(detail.pedidos.length === 0){
+    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px;">Nenhum pedido encontrado</td></tr>`;
+  }else{
+    body.innerHTML = detail.pedidos.map(p => {
+      const [label, cls] = STATUS_LABEL[p.status] || ["—","zero"];
+      return `<tr>
+        <td>${p.pedido || "—"}</td><td>${p.clienteNome}</td><td>${p.cliente}</td>
+        <td>${p.cidade}</td><td>${p.regiao}</td>
+        <td class="num">${fmt(Math.round(p.peso))}</td>
+        <td><span class="badge ${cls}">${label}</span></td>
+      </tr>`;
+    }).join("");
+  }
+
+  document.getElementById("regionTableTitle").textContent = `Peso por região — ${vendedor}`;
+  document.getElementById("iqfTableTitle").textContent = `IQF — ${vendedor}`;
+  renderLegend(detail.totals, vendedor);
+  document.getElementById("regionTableBody").innerHTML =
+    detail.regionSummary.map(r => `<tr><td>${r[0]}</td><td class="num">${fmt(r[1])}</td><td class="num">${fmt(r[2])}</td></tr>`).join("")
+    + `<tr class="total"><td>Total ${vendedor}</td><td class="num">${fmt(detail.regionTotal[0])}</td><td class="num">${fmt(detail.regionTotal[1])}</td></tr>`;
+  document.getElementById("iqfTableBody").innerHTML =
+    detail.iqfSummary.map(r => `<tr><td>${r[0]}</td><td class="num">${fmt(r[1])}</td><td class="num">${fmt(r[2])}</td></tr>`).join("")
+    + `<tr class="total"><td>Total ${vendedor}</td><td class="num">${fmt(detail.iqfTotal[0])}</td><td class="num">${fmt(detail.iqfTotal[1])}</td></tr>`;
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+async function startApp(){
+  await loadFleet();
+  await loadBdFromSheet();
+  await loadData();
+  setInterval(async () => { await loadBdFromSheet(); await loadData(); }, CONFIG.REFRESH_MS);
+}
+
+(function init(){
+  // Se já tinha desbloqueado a edição de frota antes nesse aparelho, mantém
+  // desbloqueado (sem precisar digitar a senha de novo) — mas sempre em
+  // segundo plano; o painel em si nunca fica esperando login.
+  const cachedPwd = safeStorageGet("farol_admin_pwd");
+  if(cachedPwd){
+    adminPassword = cachedPwd;
+    fleetUnlocked = true;
+    onFleetUnlocked();
+  }
+  startApp();
+})();
+
+/* ============================================================
+   PWA: registra o service worker (permite instalar no celular)
+   ============================================================ */
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(e => console.warn("SW não registrado:", e.message));
+  });
+}
+</script></body></html>
