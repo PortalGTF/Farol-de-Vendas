@@ -24,6 +24,12 @@
   *{box-sizing:border-box;}
   body{margin:0;font-family:Calibri,'Segoe UI',Arial,sans-serif;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;}
   a{color:inherit;}
+  .app-switcher{display:flex;align-items:stretch;background:#0a0a2e;box-shadow:0 1px 4px rgba(0,0,0,.25);}
+  .app-tab{display:flex;align-items:center;gap:6px;padding:0 16px;height:38px;font-size:12px;font-weight:600;color:#9fa8c9;text-decoration:none;border-right:1px solid rgba(255,255,255,.08);transition:.15s;}
+  .app-tab:hover{background:rgba(255,255,255,.06);color:#fff;}
+  .app-tab.active{background:var(--navy);color:#fff;}
+  .app-tab svg{flex:0 0 auto;opacity:.9;}
+  @media (max-width:520px){.app-tab{padding:0 11px;font-size:11px;gap:4px;}}
   .topbar{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 60%,var(--navy-3) 100%);color:#fff;padding:18px 20px 22px;}
   .topbar-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
   .title-block h1{margin:0;font-size:19px;letter-spacing:.03em;font-weight:700;}
@@ -102,6 +108,16 @@
 </style>
 </head>
 <body>
+<div class="app-switcher">
+  <a class="app-tab" href="https://portalgtf.github.io/">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="1.8"/></svg>
+    Monitoramento
+  </a>
+  <a class="app-tab active" href="https://portalgtf.github.io/Farol-de-Vendas/">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    Farol de Vendas
+  </a>
+</div>
 <div id="appRoot">
 <div class="topbar">
   <div class="topbar-row">
@@ -116,7 +132,6 @@
       <span><span class="dot"></span><span id="statusText">carregando…</span></span><br>
       atualizado em <span id="lastUpdate">—</span>
       <div class="btnbar">
-        <a class="refresh-btn" id="monitoramentoBtn" href="https://portalgtf.github.io/">📦 Monitoramento</a>
         <button class="refresh-btn" id="passwordsBtn" onclick="openPasswordsModal()" style="display:none;">🔑 Trocar senha</button>
         <button class="refresh-btn" id="editFleetBtn" onclick="requestFleetEdit()">🚚 Editar frota</button>
         <button class="refresh-btn" id="refreshBtn" onclick="loadData()">↻ Atualizar</button>
