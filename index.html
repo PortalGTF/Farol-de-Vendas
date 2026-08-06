@@ -32,7 +32,7 @@
   .meta .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gold);margin-right:5px;}
   .meta.err .dot{background:var(--red);}
   .btnbar{display:flex;gap:6px;justify-content:flex-end;margin-top:6px;}
-  .refresh-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;padding:5px 12px;border-radius:20px;font-size:11.5px;cursor:pointer;}
+  .refresh-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;padding:5px 12px;border-radius:20px;font-size:11.5px;cursor:pointer;text-decoration:none;display:inline-block;}
   .refresh-btn:hover{background:rgba(255,255,255,.22);}
   .search-wrap{margin-top:14px;position:relative;max-width:420px;}
   .search-wrap input{width:100%;padding:10px 14px 10px 36px;border-radius:24px;border:none;font-size:14px;outline:none;}
@@ -116,6 +116,7 @@
       <span><span class="dot"></span><span id="statusText">carregando…</span></span><br>
       atualizado em <span id="lastUpdate">—</span>
       <div class="btnbar">
+        <a class="refresh-btn" id="monitoramentoBtn" href="https://portalgtf.github.io/">📦 Monitoramento</a>
         <button class="refresh-btn" id="passwordsBtn" onclick="openPasswordsModal()" style="display:none;">🔑 Trocar senha</button>
         <button class="refresh-btn" id="editFleetBtn" onclick="requestFleetEdit()">🚚 Editar frota</button>
         <button class="refresh-btn" id="refreshBtn" onclick="loadData()">↻ Atualizar</button>
