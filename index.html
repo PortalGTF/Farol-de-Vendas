@@ -11,39 +11,28 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Farol">
 <link rel="icon" href="icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
   :root{
-    --navy:#0E1B2C; --navy-2:#0A1420; --navy-3:#152A40;
-    --paper:#EEF1F6; --card:#ffffff; --ink:#0E1B2C; --muted:#4B5A70; --line:#E2E7EF;
-    --green:#16A34A; --green-bg:#E9F8EF;
-    --orange:#D97B0A; --orange-bg:#FDF1DF;
-    --red:#DC2626; --red-bg:#FCEAEA;
-    --gold:#D97B0A; --radius:12px;
+    --navy:#0000D0; --navy-2:#0000a8; --navy-3:#2626e0;
+    --paper:#f4f6fb; --card:#ffffff; --ink:#1a2238; --muted:#6b7590; --line:#e3e7f1;
+    --green:#1c8a4c; --green-bg:#e4f7ec;
+    --orange:#c97a12; --orange-bg:#fdf1de;
+    --red:#c62f2f; --red-bg:#fde7e7;
+    --gold:#e8a13a; --radius:12px;
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:'Inter','Segoe UI',Arial,sans-serif;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;}
+  body{margin:0;font-family:Calibri,'Segoe UI',Arial,sans-serif;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;}
   a{color:inherit;}
-  .app-switcher{display:flex;align-items:stretch;background:#0E1B2C;box-shadow:0 1px 4px rgba(0,0,0,.25);}
-  .app-tab{display:flex;align-items:center;gap:6px;padding:0 16px;height:38px;font-size:12px;font-weight:600;color:#9fa8c9;text-decoration:none;border-right:1px solid rgba(255,255,255,.08);transition:.15s;}
-  .app-tab:hover{background:rgba(255,255,255,.06);color:#fff;}
-  .app-tab.active{background:var(--navy);color:#fff;}
-  .app-tab svg{flex:0 0 auto;opacity:.9;}
-  @media (max-width:520px){.app-tab{padding:0 11px;font-size:11px;gap:4px;}}
   .topbar{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 60%,var(--navy-3) 100%);color:#fff;padding:18px 20px 22px;}
   .topbar-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-  .title-block h1{margin:0;font-size:19px;letter-spacing:.02em;font-weight:700;font-family:'Sora',sans-serif;}
+  .title-block h1{margin:0;font-size:19px;letter-spacing:.03em;font-weight:700;}
   .title-block .sub{margin-top:2px;font-size:13px;color:#c9d4f2;font-style:italic;}
   .meta{text-align:right;font-size:11.5px;color:#b9c6ec;line-height:1.5;}
-  .meta-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#a9b9e6;font-weight:600;}
-  .meta-updated{font-family:'Sora',sans-serif;font-size:24px;font-weight:700;color:#fff;line-height:1.2;margin:1px 0 4px;}
-  .meta-status{font-size:11.5px;color:#b9c6ec;margin-bottom:8px;}
   .meta .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gold);margin-right:5px;}
   .meta.err .dot{background:var(--red);}
   .btnbar{display:flex;gap:6px;justify-content:flex-end;margin-top:6px;}
-  .refresh-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;padding:5px 12px;border-radius:20px;font-size:11.5px;cursor:pointer;text-decoration:none;display:inline-block;}
+  .refresh-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;padding:5px 12px;border-radius:20px;font-size:11.5px;cursor:pointer;}
   .refresh-btn:hover{background:rgba(255,255,255,.22);}
   .search-wrap{margin-top:14px;position:relative;max-width:420px;}
   .search-wrap input{width:100%;padding:10px 14px 10px 36px;border-radius:24px;border:none;font-size:14px;outline:none;}
@@ -113,16 +102,6 @@
 </style>
 </head>
 <body>
-<div class="app-switcher">
-  <a class="app-tab" href="https://portalgtf.github.io/">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="1.8"/></svg>
-    Monitoramento
-  </a>
-  <a class="app-tab active" href="https://portalgtf.github.io/Farol-de-Vendas/">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-    Farol de Vendas
-  </a>
-</div>
 <div id="appRoot">
 <div class="topbar">
   <div class="topbar-row">
@@ -134,9 +113,8 @@
       </div>
     </div>
     <div class="meta" id="metaBox">
-      <div class="meta-label">Atualizado em</div>
-      <div class="meta-updated" id="lastUpdate">—</div>
-      <div class="meta-status"><span class="dot"></span><span id="statusText">carregando…</span></div>
+      <span><span class="dot"></span><span id="statusText">carregando…</span></span><br>
+      atualizado em <span id="lastUpdate">—</span>
       <div class="btnbar">
         <button class="refresh-btn" id="passwordsBtn" onclick="openPasswordsModal()" style="display:none;">🔑 Trocar senha</button>
         <button class="refresh-btn" id="editFleetBtn" onclick="requestFleetEdit()">🚚 Editar frota</button>
@@ -874,6 +852,8 @@ function closeFleetModal(){
 /* ============================================================
    CARREGAR BASE BRUTA DO GOOGLE SHEETS
    ============================================================ */
+let sheetLastModified = null;
+
 async function loadData(){
   const btn = document.getElementById("refreshBtn");
   if(btn) btn.textContent = "⟳ Atualizando...";
@@ -892,29 +872,64 @@ async function loadData(){
     const dataRows = parsed.slice(1);
     latestData = computeDashboard(dataRows, colMap);
     usingSample = false;
-    setStatus(true, `conectado · ${dataRows.length} linhas lidas`);
-    // guarda pra próxima vez a página abrir já mostrando isso na hora, sem esperar a rede
-    safeStorageSet('farolLastData', JSON.stringify({data: latestData, savedAt: Date.now()}));
+    if(data.lastModified) sheetLastModified = new Date(data.lastModified);
+    setStatus(true, "conectado");
+    saveCache();
   }catch(err){
     console.error(err);
-    if(latestData && !usingSample){
-      // já tinha dados reais na tela (do cache ou de uma busca anterior) — mantém eles, só avisa que não atualizou
-      setStatus(false, "não consegui atualizar agora — mostrando a última base que tinha");
-    } else {
+    if(!loadedFromCache){
       setStatus(false, "sem conexão com a planilha — mostrando dados de exemplo");
       latestData = JSON.parse(JSON.stringify(SAMPLE_DATA));
       usingSample = true;
+    }else{
+      setStatus(false, "sem conexão agora — mostrando o último dado salvo");
     }
   }
   render();
   if(btn) btn.textContent = "↻ Atualizar";
 }
 
+/* ============================================================
+   CACHE LOCAL — mostra a última versão salva na hora que abre o
+   app, sem precisar esperar a rede, e atualiza por trás depois.
+   ============================================================ */
+const CACHE_KEY = "farol_cache_v1";
+let loadedFromCache = false;
+
+function saveCache(){
+  try{
+    safeStorageSet(CACHE_KEY, JSON.stringify({
+      latestData, fleet,
+      sheetLastModified: sheetLastModified ? sheetLastModified.toISOString() : null,
+      cachedAt: new Date().toISOString()
+    }));
+  }catch(e){ /* ignorado */ }
+}
+
+function loadFromCacheIfAny(){
+  const raw = safeStorageGet(CACHE_KEY);
+  if(!raw) return false;
+  try{
+    const c = JSON.parse(raw);
+    if(!c.latestData) return false;
+    latestData = c.latestData;
+    fleet = c.fleet || fleet;
+    sheetLastModified = c.sheetLastModified ? new Date(c.sheetLastModified) : null;
+    usingSample = false;
+    loadedFromCache = true;
+    setStatus(true, "carregado do cache");
+    render();
+    return true;
+  }catch(e){ return false; }
+}
+
 function setStatus(ok, msg){
   const meta = document.getElementById("metaBox");
   meta.classList.toggle("err", !ok);
   document.getElementById("statusText").textContent = msg;
-  document.getElementById("lastUpdate").textContent = new Date().toLocaleDateString("pt-BR") + " " + new Date().toLocaleTimeString("pt-BR");
+  document.getElementById("lastUpdate").textContent = sheetLastModified
+    ? sheetLastModified.toLocaleString("pt-BR")
+    : "—";
   document.getElementById("lastUpdate").title = `BD: ${bdSource} (${bdRowCount} cidades)`;
   document.getElementById("footer").textContent = ok
     ? "Dados ao vivo da planilha Google Sheets · atualiza automaticamente"
@@ -928,7 +943,7 @@ function setStatus(ok, msg){
 
   if(usingSample){
     html += `<div class="banner">👀 <b>Modo de demonstração</b> — não foi possível conectar com a planilha real a partir daqui (isso é esperado dentro do preview do Claude). Os dados abaixo são só de exemplo, pra você avaliar o layout. Hospede o arquivo (ex: Netlify) pra ver os dados reais.</div>`;
-  } else if(!ok){
+  } else if(!ok && !loadedFromCache){
     html += `<div class="banner">⚠ ${msg}. Verifique se a planilha está compartilhada como "Qualquer pessoa com o link → Leitor" e se a aba se chama exatamente "${CONFIG.BASE_SHEET_NAME}" (CONFIG.BASE_SHEET_NAME).</div>`;
   }
 
@@ -1076,27 +1091,10 @@ function renderVendorDetail(vendedor){
 /* ============================================================
    INIT
    ============================================================ */
-function restoreFromCacheAndRenderNow(){
-  try{
-    const raw = safeStorageGet('farolLastData');
-    if(!raw) return false;
-    const cached = JSON.parse(raw);
-    if(!cached || !cached.data) return false;
-    latestData = cached.data;
-    usingSample = false;
-    const minutosAtras = Math.round((Date.now()-cached.savedAt)/60000);
-    setStatus(true, `mostrando última base salva (${minutosAtras<1?'agora mesmo':'há '+minutosAtras+' min'}) · atualizando…`);
-    render();
-    return true;
-  }catch(e){ console.warn('Não consegui restaurar o cache local:', e.message); return false; }
-}
-
 async function startApp(){
-  // 1) Mostra AGORA os últimos dados salvos nesse aparelho, sem esperar rede nenhuma
-  const pintouComCache = restoreFromCacheAndRenderNow();
-
-  // 2) Busca os dados de verdade (em paralelo, mais rápido que um atrás do outro) e atualiza a tela assim que chegar
-  await Promise.allSettled([loadFleet(), loadBdFromSheet()]);
+  loadFromCacheIfAny(); // mostra a última versão salva na hora, sem esperar rede
+  await loadFleet();
+  await loadBdFromSheet();
   await loadData();
   setInterval(async () => { await loadBdFromSheet(); await loadData(); }, CONFIG.REFRESH_MS);
 }
