@@ -16,7 +16,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
   :root{
-    --navy:#0C7C8C; --navy-2:#075A66; --navy-3:#0A6E7C;
+    --navy:#0E1B2C; --navy-2:#0A1420; --navy-3:#152A40;
     --paper:#EEF1F6; --card:#ffffff; --ink:#0E1B2C; --muted:#4B5A70; --line:#E2E7EF;
     --green:#16A34A; --green-bg:#E9F8EF;
     --orange:#D97B0A; --orange-bg:#FDF1DF;
@@ -893,11 +893,18 @@ async function loadData(){
     latestData = computeDashboard(dataRows, colMap);
     usingSample = false;
     setStatus(true, `conectado · ${dataRows.length} linhas lidas`);
+    // guarda pra próxima vez a página abrir já mostrando isso na hora, sem esperar a rede
+    safeStorageSet('farolLastData', JSON.stringify({data: latestData, savedAt: Date.now()}));
   }catch(err){
     console.error(err);
-    setStatus(false, "sem conexão com a planilha — mostrando dados de exemplo");
-    latestData = JSON.parse(JSON.stringify(SAMPLE_DATA));
-    usingSample = true;
+    if(latestData && !usingSample){
+      // já tinha dados reais na tela (do cache ou de uma busca anterior) — mantém eles, só avisa que não atualizou
+      setStatus(false, "não consegui atualizar agora — mostrando a última base que tinha");
+    } else {
+      setStatus(false, "sem conexão com a planilha — mostrando dados de exemplo");
+      latestData = JSON.parse(JSON.stringify(SAMPLE_DATA));
+      usingSample = true;
+    }
   }
   render();
   if(btn) btn.textContent = "↻ Atualizar";
@@ -1069,9 +1076,27 @@ function renderVendorDetail(vendedor){
 /* ============================================================
    INIT
    ============================================================ */
+function restoreFromCacheAndRenderNow(){
+  try{
+    const raw = safeStorageGet('farolLastData');
+    if(!raw) return false;
+    const cached = JSON.parse(raw);
+    if(!cached || !cached.data) return false;
+    latestData = cached.data;
+    usingSample = false;
+    const minutosAtras = Math.round((Date.now()-cached.savedAt)/60000);
+    setStatus(true, `mostrando última base salva (${minutosAtras<1?'agora mesmo':'há '+minutosAtras+' min'}) · atualizando…`);
+    render();
+    return true;
+  }catch(e){ console.warn('Não consegui restaurar o cache local:', e.message); return false; }
+}
+
 async function startApp(){
-  await loadFleet();
-  await loadBdFromSheet();
+  // 1) Mostra AGORA os últimos dados salvos nesse aparelho, sem esperar rede nenhuma
+  const pintouComCache = restoreFromCacheAndRenderNow();
+
+  // 2) Busca os dados de verdade (em paralelo, mais rápido que um atrás do outro) e atualiza a tela assim que chegar
+  await Promise.allSettled([loadFleet(), loadBdFromSheet()]);
   await loadData();
   setInterval(async () => { await loadBdFromSheet(); await loadData(); }, CONFIG.REFRESH_MS);
 }
