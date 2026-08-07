@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Farol de Vendas</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0000D0">
+<meta name="theme-color" content="#0E1B2C">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,7 +14,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
   :root{
-    --navy:#0000D0; --navy-2:#0000a8; --navy-3:#2626e0;
+    --navy:#0E1B2C; --navy-2:#16283d; --navy-3:#1c344d;
+    --teal:#0C7C8C; --teal-bg:#e3f3f5;
     --paper:#f4f6fb; --card:#ffffff; --ink:#1a2238; --muted:#6b7590; --line:#e3e7f1;
     --green:#1c8a4c; --green-bg:#e4f7ec;
     --orange:#c97a12; --orange-bg:#fdf1de;
@@ -28,9 +29,20 @@
   .topbar-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
   .title-block h1{margin:0;font-size:19px;letter-spacing:.03em;font-weight:700;}
   .title-block .sub{margin-top:2px;font-size:13px;color:#c9d4f2;font-style:italic;}
-  .meta{text-align:right;font-size:11.5px;color:#b9c6ec;line-height:1.5;}
-  .meta .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gold);margin-right:5px;}
-  .meta.err .dot{background:var(--red);}
+  /* barra de abas entre apps (Monitoramento / Farol de Vendas) */
+  .app-tabs{display:flex;align-items:center;background:#0E1B2C;padding:0 16px;overflow-x:auto;}
+  .app-tab{display:flex;align-items:center;gap:6px;color:#8a96a8;text-decoration:none;padding:13px 16px;font-size:13px;font-weight:600;border-bottom:3px solid transparent;white-space:nowrap;transition:color .15s;}
+  .app-tab:hover{color:#fff;}
+  .app-tab.active{color:#fff;border-bottom-color:var(--teal);}
+
+  .meta{text-align:right;}
+  .update-badge{text-align:right;}
+  .update-badge .lbl{font-size:10.5px;color:#b9c6ec;text-transform:uppercase;letter-spacing:.05em;}
+  .update-badge .val{font-size:22px;font-weight:800;color:#fff;line-height:1.15;margin-top:2px;}
+  .update-badge .status{font-size:11.5px;color:#b9c6ec;margin-top:3px;}
+  .update-badge .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gold);margin-right:5px;}
+  .meta.err .update-badge .dot{background:var(--red);}
+  .meta.err .update-badge .val{color:#ffd7d7;}
   .btnbar{display:flex;gap:6px;justify-content:flex-end;margin-top:6px;}
   .refresh-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;padding:5px 12px;border-radius:20px;font-size:11.5px;cursor:pointer;}
   .refresh-btn:hover{background:rgba(255,255,255,.22);}
@@ -103,6 +115,10 @@
 </head>
 <body>
 <div id="appRoot">
+<div class="app-tabs">
+  <a href="https://portalgtf.github.io/" class="app-tab">🗺️ Monitoramento</a>
+  <a href="#" class="app-tab active">⚙️ Farol de Vendas</a>
+</div>
 <div class="topbar">
   <div class="topbar-row">
     <div class="title-block" style="display:flex;align-items:center;gap:12px;">
@@ -113,8 +129,11 @@
       </div>
     </div>
     <div class="meta" id="metaBox">
-      <span><span class="dot"></span><span id="statusText">carregando…</span></span><br>
-      atualizado em <span id="lastUpdate">—</span>
+      <div class="update-badge">
+        <div class="lbl"><span class="dot"></span>Última atualização da planilha</div>
+        <div class="val" id="lastUpdate">—</div>
+        <div class="status" id="statusText">carregando…</div>
+      </div>
       <div class="btnbar">
         <button class="refresh-btn" id="passwordsBtn" onclick="openPasswordsModal()" style="display:none;">🔑 Trocar senha</button>
         <button class="refresh-btn" id="editFleetBtn" onclick="requestFleetEdit()">🚚 Editar frota</button>
@@ -315,10 +334,16 @@ rebuildBdMap(REF_BD);
 // embutida como backup. De quebra, também extrai o Perfil Mínimo (2ª coluna
 // "PERFIL MIN", cruzando por "REGIÃO V") da mesma leitura — sem precisar de
 // uma aba separada.
+let bdErrorMessage = "";
 async function loadBdFromSheet(){
   try{
     if(!CONFIG.APPS_SCRIPT_URL || CONFIG.APPS_SCRIPT_URL.includes("COLE_AQUI")) throw new Error("backend não configurado");
-    const res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=bdData`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    let res;
+    try{
+      res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=bdData`, { signal: controller.signal });
+    }finally{ clearTimeout(timer); }
     if(!res.ok) throw new Error("HTTP "+res.status);
     const data = await res.json();
     if(!data.ok) throw new Error(data.error || "erro desconhecido");
@@ -354,6 +379,7 @@ async function loadBdFromSheet(){
     rebuildBdMap(list);
     bdSource = "ao vivo";
     bdRowCount = list.length;
+    bdErrorMessage = "";
 
     if(perfilIdx>=0 && perfilByRegiao.size>0){
       perfilMap.clear();
@@ -366,7 +392,9 @@ async function loadBdFromSheet(){
       perfilRowCount = REF_PERFIL.length;
     }
   }catch(e){
-    console.warn("BD ao vivo indisponível, usando cópia embutida:", e.message);
+    const msg = e.name === "AbortError" ? "tempo esgotado (15s) esperando resposta do servidor" : e.message;
+    console.warn("BD ao vivo indisponível, usando cópia embutida:", msg);
+    bdErrorMessage = msg;
     rebuildBdMap(REF_BD);
     bdSource = "embutida (backup)";
     bdRowCount = REF_BD.length;
@@ -859,7 +887,12 @@ async function loadData(){
   if(btn) btn.textContent = "⟳ Atualizando...";
   try{
     if(!backendConfigured()) throw new Error("backend não configurado (CONFIG.APPS_SCRIPT_URL)");
-    const res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=baseData`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    let res;
+    try{
+      res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=baseData`, { signal: controller.signal });
+    }finally{ clearTimeout(timer); }
     if(!res.ok) throw new Error("HTTP "+res.status);
     const data = await res.json();
     if(!data.ok) throw new Error(data.error || "erro desconhecido");
@@ -877,12 +910,13 @@ async function loadData(){
     saveCache();
   }catch(err){
     console.error(err);
+    const reason = err.name === "AbortError" ? "tempo esgotado (20s) esperando resposta do servidor" : err.message;
     if(!loadedFromCache){
-      setStatus(false, "sem conexão com a planilha — mostrando dados de exemplo");
+      setStatus(false, "sem conexão com a planilha (" + reason + ") — mostrando dados de exemplo");
       latestData = JSON.parse(JSON.stringify(SAMPLE_DATA));
       usingSample = true;
     }else{
-      setStatus(false, "sem conexão agora — mostrando o último dado salvo");
+      setStatus(false, "sem conexão agora (" + reason + ") — mostrando o último dado salvo");
     }
   }
   render();
@@ -948,7 +982,7 @@ function setStatus(ok, msg){
   }
 
   if(!usingSample && bdSource !== "ao vivo"){
-    html += `<div class="banner">⚠ Não consegui ler a aba "${CONFIG.BD_SHEET_NAME}" ao vivo — usando cópia de backup (${bdRowCount} cidades). Confirme se existe uma aba com esse nome exato na planilha, com colunas "CIDADE" e "REGIÃO".</div>`;
+    html += `<div class="banner">⚠ Não consegui ler a aba "${CONFIG.BD_SHEET_NAME}" ao vivo — usando cópia de backup (${bdRowCount} cidades).${bdErrorMessage?` Motivo: <code>${bdErrorMessage}</code>.`:""} Confirme se existe uma aba com esse nome exato na planilha, com colunas "CIDADE" e "REGIÃO".</div>`;
   }
   if(!usingSample && perfilSource !== "ao vivo (aba BD)"){
     html += `<div class="banner">⚠ Não consegui extrair o "Perfil Mínimo" da aba "${CONFIG.BD_SHEET_NAME}" (coluna I, cruzando por REGIÃO V) — usando cópia de backup (${perfilRowCount} regiões).</div>`;
