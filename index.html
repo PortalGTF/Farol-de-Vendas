@@ -11,20 +11,22 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Farol">
 <link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
   :root{
-    --navy:#0000D0; --navy-2:#0000a8; --navy-3:#2626e0;
-    --paper:#f4f6fb; --card:#ffffff; --ink:#1a2238; --muted:#6b7590; --line:#e3e7f1;
-    --green:#1c8a4c; --green-bg:#e4f7ec;
-    --orange:#c97a12; --orange-bg:#fdf1de;
-    --red:#c62f2f; --red-bg:#fde7e7;
-    --gold:#e8a13a; --radius:12px;
+    --navy:#0C7C8C; --navy-2:#075A66; --navy-3:#0A6E7C;
+    --paper:#EEF1F6; --card:#ffffff; --ink:#0E1B2C; --muted:#4B5A70; --line:#E2E7EF;
+    --green:#16A34A; --green-bg:#E9F8EF;
+    --orange:#D97B0A; --orange-bg:#FDF1DF;
+    --red:#DC2626; --red-bg:#FCEAEA;
+    --gold:#D97B0A; --radius:12px;
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:Calibri,'Segoe UI',Arial,sans-serif;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;}
+  body{margin:0;font-family:'Inter','Segoe UI',Arial,sans-serif;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;}
   a{color:inherit;}
-  .app-switcher{display:flex;align-items:stretch;background:#0a0a2e;box-shadow:0 1px 4px rgba(0,0,0,.25);}
+  .app-switcher{display:flex;align-items:stretch;background:#0E1B2C;box-shadow:0 1px 4px rgba(0,0,0,.25);}
   .app-tab{display:flex;align-items:center;gap:6px;padding:0 16px;height:38px;font-size:12px;font-weight:600;color:#9fa8c9;text-decoration:none;border-right:1px solid rgba(255,255,255,.08);transition:.15s;}
   .app-tab:hover{background:rgba(255,255,255,.06);color:#fff;}
   .app-tab.active{background:var(--navy);color:#fff;}
@@ -32,9 +34,12 @@
   @media (max-width:520px){.app-tab{padding:0 11px;font-size:11px;gap:4px;}}
   .topbar{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 60%,var(--navy-3) 100%);color:#fff;padding:18px 20px 22px;}
   .topbar-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-  .title-block h1{margin:0;font-size:19px;letter-spacing:.03em;font-weight:700;}
+  .title-block h1{margin:0;font-size:19px;letter-spacing:.02em;font-weight:700;font-family:'Sora',sans-serif;}
   .title-block .sub{margin-top:2px;font-size:13px;color:#c9d4f2;font-style:italic;}
   .meta{text-align:right;font-size:11.5px;color:#b9c6ec;line-height:1.5;}
+  .meta-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#a9b9e6;font-weight:600;}
+  .meta-updated{font-family:'Sora',sans-serif;font-size:24px;font-weight:700;color:#fff;line-height:1.2;margin:1px 0 4px;}
+  .meta-status{font-size:11.5px;color:#b9c6ec;margin-bottom:8px;}
   .meta .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gold);margin-right:5px;}
   .meta.err .dot{background:var(--red);}
   .btnbar{display:flex;gap:6px;justify-content:flex-end;margin-top:6px;}
@@ -129,8 +134,9 @@
       </div>
     </div>
     <div class="meta" id="metaBox">
-      <span><span class="dot"></span><span id="statusText">carregando…</span></span><br>
-      atualizado em <span id="lastUpdate">—</span>
+      <div class="meta-label">Atualizado em</div>
+      <div class="meta-updated" id="lastUpdate">—</div>
+      <div class="meta-status"><span class="dot"></span><span id="statusText">carregando…</span></div>
       <div class="btnbar">
         <button class="refresh-btn" id="passwordsBtn" onclick="openPasswordsModal()" style="display:none;">🔑 Trocar senha</button>
         <button class="refresh-btn" id="editFleetBtn" onclick="requestFleetEdit()">🚚 Editar frota</button>
@@ -901,7 +907,7 @@ function setStatus(ok, msg){
   const meta = document.getElementById("metaBox");
   meta.classList.toggle("err", !ok);
   document.getElementById("statusText").textContent = msg;
-  document.getElementById("lastUpdate").textContent = new Date().toLocaleTimeString("pt-BR");
+  document.getElementById("lastUpdate").textContent = new Date().toLocaleDateString("pt-BR") + " " + new Date().toLocaleTimeString("pt-BR");
   document.getElementById("lastUpdate").title = `BD: ${bdSource} (${bdRowCount} cidades)`;
   document.getElementById("footer").textContent = ok
     ? "Dados ao vivo da planilha Google Sheets · atualiza automaticamente"
