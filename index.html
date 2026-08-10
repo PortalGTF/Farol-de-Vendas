@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Farol de Vendas</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0E1B2C">
+<meta name="theme-color" content="#0000D0">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -75,9 +75,9 @@
   .table-card{background:var(--card);border-radius:var(--radius);overflow:hidden;box-shadow:0 4px 14px rgba(15,35,80,.08);}
   table.main{width:100%;border-collapse:collapse;font-size:12.5px;}
   table.main thead th{background:var(--navy);color:#fff;padding:9px 8px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.02em;position:sticky;top:0;cursor:pointer;user-select:none;}
-  table.main thead th.num{text-align:right;}
+  table.main thead th.num{text-align:center;}
   table.main tbody td{padding:7px 8px;border-top:1px solid var(--line);white-space:nowrap;}
-  table.main tbody td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  table.main tbody td.num{text-align:center;font-variant-numeric:tabular-nums;}
   table.main tbody tr:hover{background:#f7f9fd;}
   table.main tbody tr.match{background:#fff6e0;}
   .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-weight:700;font-size:11.5px;min-width:34px;text-align:center;}
@@ -91,9 +91,9 @@
   .side-card{background:var(--card);border-radius:var(--radius);overflow:hidden;box-shadow:0 4px 14px rgba(15,35,80,.08);}
   .side-card table{width:100%;border-collapse:collapse;font-size:12.5px;}
   .side-card thead th{background:var(--navy-3);color:#fff;padding:8px;text-align:left;font-size:11px;text-transform:uppercase;}
-  .side-card thead th.num{text-align:right;}
+  .side-card thead th.num{text-align:center;}
   .side-card tbody td{padding:6px 8px;border-top:1px solid var(--line);}
-  .side-card tbody td.num{text-align:right;}
+  .side-card tbody td.num{text-align:center;}
   .side-card tr.total{background:var(--navy);color:#fff;font-weight:700;}
   .side-card .scroll{max-height:340px;overflow-y:auto;}
   .footer{text-align:center;color:var(--muted);font-size:11px;margin:26px 0 10px;}
@@ -190,7 +190,7 @@
         <table class="main">
           <thead>
             <tr>
-              <th>Pedido</th><th>Cliente</th><th>Código cliente</th><th>Cidade</th><th>Região</th>
+              <th>Vendedor</th><th>Pedido</th><th>Cliente</th><th>Código cliente</th><th>Cidade</th><th>Região</th>
               <th class="num">Peso</th><th>Status</th>
             </tr>
           </thead>
@@ -611,18 +611,19 @@ function computeDashboard(rawRows, colMap){
 }
 
 /* ============================================================
-   DETALHAMENTO POR VENDEDOR (usado quando a busca acha 1 vendedor só)
+   DETALHAMENTO (por vendedor OU por região, usado quando a busca
+   acha um único vendedor ou uma única região)
    ============================================================ */
-function buildVendorDetail(lineItems, vendedorApelido){
-  const items = lineItems.filter(li => li.vendedor === vendedorApelido);
+function buildDetail(lineItems, filterFn){
+  const items = lineItems.filter(filterFn);
 
   // um pedido pode ter várias linhas de produto -> agrupa por número do pedido
   const porPedido = new Map();
   items.forEach(li => {
-    const key = li.pedido || (li.cliente + "|" + li.cidade + "|" + li.regiao);
+    const key = li.pedido || (li.cliente + "|" + li.cidade + "|" + li.regiao + "|" + li.vendedor);
     if(!porPedido.has(key)) porPedido.set(key, {
       pedido: li.pedido, cliente: li.cliente, clienteNome: li.clienteNome,
-      cidade: li.cidade, regiao: li.regiao, peso: 0, status: li.status
+      cidade: li.cidade, regiao: li.regiao, vendedor: li.vendedor, peso: 0, status: li.status
     });
     const p = porPedido.get(key);
     p.peso += li.peso;
@@ -660,6 +661,12 @@ function buildVendorDetail(lineItems, vendedorApelido){
     iqfTotal: [Math.round(iqfRows.reduce((s,r)=>s+r[1],0)*10)/10, Math.round(iqfRows.reduce((s,r)=>s+r[2],0))],
     totals: { falta: Math.round(totals.falta), pedido: Math.round(totals.pedido), liberado: Math.round(totals.liberado) }
   };
+}
+function buildVendorDetail(lineItems, vendedorApelido){
+  return buildDetail(lineItems, li => li.vendedor === vendedorApelido);
+}
+function buildRegionDetail(lineItems, regiao){
+  return buildDetail(lineItems, li => li.regiao === regiao);
 }
 /* ============================================================
    ESTADO
@@ -1070,11 +1077,13 @@ function renderTable(){
     }).join("");
   }
 
-  // identifica se a busca aponta pra exatamente 1 vendedor -> ativa modo detalhado
+  // identifica se a busca aponta pra exatamente 1 vendedor OU 1 região -> ativa modo detalhado
   const matchedVendors = new Set(rows.filter(r=>q && r[0].toLowerCase().includes(q)).map(r=>r[0]));
+  const matchedRegions = new Set(rows.filter(r=>q && r[1].toLowerCase().includes(q)).map(r=>r[1]));
   if(q && matchedVendors.size === 1){
-    const vendedor = Array.from(matchedVendors)[0];
-    renderVendorDetail(vendedor);
+    renderDetail("vendedor", Array.from(matchedVendors)[0]);
+  }else if(q && matchedRegions.size === 1){
+    renderDetail("regiao", Array.from(matchedRegions)[0]);
   }else{
     document.getElementById("vendorDetailSection").style.display = "none";
     document.getElementById("regionTableTitle").textContent = "Peso agrupado por região";
@@ -1091,19 +1100,22 @@ function renderTable(){
 
 const STATUS_LABEL = { liberado: ["Liberado","green"], pedido: ["Pedido s/gestão","orange"], falta: ["Falta de saldo","red"] };
 
-function renderVendorDetail(vendedor){
-  const detail = buildVendorDetail(latestData.lineItems, vendedor);
+function renderDetail(mode, value){
+  const detail = mode === "vendedor"
+    ? buildVendorDetail(latestData.lineItems, value)
+    : buildRegionDetail(latestData.lineItems, value);
+  const titlePrefix = mode === "vendedor" ? "Pedidos de" : "Pedidos da região";
 
   document.getElementById("vendorDetailSection").style.display = "block";
-  document.getElementById("vendorDetailTitle").textContent = `Pedidos de ${vendedor}`;
+  document.getElementById("vendorDetailTitle").textContent = `${titlePrefix} ${value}`;
   const body = document.getElementById("vendorDetailBody");
   if(detail.pedidos.length === 0){
-    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px;">Nenhum pedido encontrado</td></tr>`;
+    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px;">Nenhum pedido encontrado</td></tr>`;
   }else{
     body.innerHTML = detail.pedidos.map(p => {
       const [label, cls] = STATUS_LABEL[p.status] || ["—","zero"];
       return `<tr>
-        <td>${p.pedido || "—"}</td><td>${p.clienteNome}</td><td>${p.cliente}</td>
+        <td class="vendor-name">${p.vendedor}</td><td>${p.pedido || "—"}</td><td>${p.clienteNome}</td><td>${p.cliente}</td>
         <td>${p.cidade}</td><td>${p.regiao}</td>
         <td class="num">${fmt(Math.round(p.peso))}</td>
         <td><span class="badge ${cls}">${label}</span></td>
@@ -1111,15 +1123,15 @@ function renderVendorDetail(vendedor){
     }).join("");
   }
 
-  document.getElementById("regionTableTitle").textContent = `Peso por região — ${vendedor}`;
-  document.getElementById("iqfTableTitle").textContent = `IQF — ${vendedor}`;
-  renderLegend(detail.totals, vendedor);
+  document.getElementById("regionTableTitle").textContent = `Peso por região — ${value}`;
+  document.getElementById("iqfTableTitle").textContent = `IQF — ${value}`;
+  renderLegend(detail.totals, value);
   document.getElementById("regionTableBody").innerHTML =
     detail.regionSummary.map(r => `<tr><td>${r[0]}</td><td class="num">${fmt(r[1])}</td><td class="num">${fmt(r[2])}</td></tr>`).join("")
-    + `<tr class="total"><td>Total ${vendedor}</td><td class="num">${fmt(detail.regionTotal[0])}</td><td class="num">${fmt(detail.regionTotal[1])}</td></tr>`;
+    + `<tr class="total"><td>Total ${value}</td><td class="num">${fmt(detail.regionTotal[0])}</td><td class="num">${fmt(detail.regionTotal[1])}</td></tr>`;
   document.getElementById("iqfTableBody").innerHTML =
     detail.iqfSummary.map(r => `<tr><td>${r[0]}</td><td class="num">${fmt(r[1])}</td><td class="num">${fmt(r[2])}</td></tr>`).join("")
-    + `<tr class="total"><td>Total ${vendedor}</td><td class="num">${fmt(detail.iqfTotal[0])}</td><td class="num">${fmt(detail.iqfTotal[1])}</td></tr>`;
+    + `<tr class="total"><td>Total ${value}</td><td class="num">${fmt(detail.iqfTotal[0])}</td><td class="num">${fmt(detail.iqfTotal[1])}</td></tr>`;
 }
 
 /* ============================================================
