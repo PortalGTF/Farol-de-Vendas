@@ -534,8 +534,8 @@ function computeDashboard(rawRows, colMap){
 
     const apelido = resolveApelido(vendedorNome);
 
-    // J = AG / AI  (qtd de caixas)
-    const J = pesoCx ? (qtdLiberada / pesoCx) : qtdLiberada;
+    // J = (AG + AN) / I  (qtd de caixas) — corrigido conforme fórmula certa da planilha
+    const J = pesoCx ? (N / pesoCx) : N;
     qtdCaixasTotal += J;
 
     // M = status do farol
