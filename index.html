@@ -79,6 +79,7 @@
   table.main tbody td{padding:7px 8px;border-top:1px solid var(--line);white-space:nowrap;}
   table.main tbody td.num{text-align:center;font-variant-numeric:tabular-nums;}
   table.main tbody tr:hover{background:#f7f9fd;}
+  table.main tbody tr.clickable{cursor:pointer;}
   table.main tbody tr.match{background:#fff6e0;}
   .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-weight:700;font-size:11.5px;min-width:34px;text-align:center;}
   .badge.zero{background:transparent;color:var(--muted);font-weight:400;}
@@ -95,10 +96,12 @@
   .side-card tbody td{padding:6px 8px;border-top:1px solid var(--line);}
   .side-card tbody td.num{text-align:center;}
   .side-card tr.total{background:var(--navy);color:#fff;font-weight:700;}
+  table.main tbody tr.total{background:var(--navy);color:#fff;font-weight:700;}
+  table.main tbody tr.total:hover{background:var(--navy);}
   .side-card .scroll{max-height:340px;overflow-y:auto;}
   .footer{text-align:center;color:var(--muted);font-size:11px;margin:26px 0 10px;}
   .banner{background:#fff3d6;color:#7a5400;border:1px solid #f0d693;border-radius:10px;padding:10px 14px;font-size:12.5px;margin:14px 0;}
-  .modal-bg{position:fixed;inset:0;background:rgba(10,20,50,.5);display:none;align-items:center;justify-content:center;z-index:50;padding:16px;}
+  .modal-bg{position:fixed;inset:0;background:rgba(10,20,50,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:50;padding:16px;}
   .modal-bg.show{display:flex;}
   .modal{background:#fff;border-radius:14px;padding:20px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;}
   .modal h3{margin:0 0 12px;color:var(--navy);font-size:15px;}
@@ -232,6 +235,22 @@
   </div>
 </div>
 
+<div class="modal-bg" id="pedidoModal">
+  <div class="modal" style="max-width:600px;">
+    <h3 id="pedidoModalTitle">📦 Pedido</h3>
+    <p id="pedidoModalSub" style="font-size:12.5px;color:var(--muted);margin:0 0 12px;"></p>
+    <div class="table-scroll" style="max-height:50vh;">
+      <table class="main" style="font-size:12.5px;">
+        <thead><tr><th>Produto</th><th class="num">Peso</th></tr></thead>
+        <tbody id="pedidoModalBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closePedidoModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="fleetModal">
   <div class="modal">
     <h3>🚚 Frota disponível agora</h3>
@@ -308,10 +327,10 @@ const SAMPLE_DATA = {
   iqfTotal: [751, 7590],
   unresolvedCount: 0, unresolvedCities: [],
   lineItems: [
-    { vendedor:"A & D", pedido:"196001", cliente:"001234/01", clienteNome:"MERCADO SÃO JOSÉ LTDA", cidade:"FAXINAL", regiao:"FAXINAL", peso:1341, cx:93, status:"liberado", isIqf:false },
-    { vendedor:"A & D", pedido:"196045", cliente:"005512/02", clienteNome:"IRMAOS MUFFATO & CIA LTDA", cidade:"MARINGA", regiao:"FOOD MARINGÁ", peso:2200, cx:110, status:"liberado", isIqf:false },
-    { vendedor:"A & D", pedido:"196050", cliente:"005512/03", clienteNome:"IRMAOS MUFFATO & CIA LTDA", cidade:"MARINGA", regiao:"FOOD MARINGÁ", peso:1554, cx:102, status:"pedido", isIqf:true },
-    { vendedor:"JONATAS", pedido:"197201", cliente:"008812/01", clienteNome:"ADEGA ESPANHOLA LTDA", cidade:"LOANDA", regiao:"LOANDA", peso:8112, cx:600, status:"liberado", isIqf:true }
+    { vendedor:"A & D", pedido:"196001", cliente:"001234/01", clienteNome:"MERCADO SÃO JOSÉ LTDA", cidade:"FAXINAL", regiao:"FAXINAL", peso:1341, cx:93, status:"liberado", isIqf:false, produto:"CARNE CONGELADA DE FRANGO FILE DE PEITO CX 20 KG" },
+    { vendedor:"A & D", pedido:"196045", cliente:"005512/02", clienteNome:"IRMAOS MUFFATO & CIA LTDA", cidade:"MARINGA", regiao:"FOOD MARINGÁ", peso:2200, cx:110, status:"liberado", isIqf:false, produto:"CARNE CONGELADA DE FRANGO COXA E SOBRECOXA CX 20 KG" },
+    { vendedor:"A & D", pedido:"196050", cliente:"005512/03", clienteNome:"IRMAOS MUFFATO & CIA LTDA", cidade:"MARINGA", regiao:"FOOD MARINGÁ", peso:1554, cx:102, status:"pedido", isIqf:true, produto:"FILE DE TILAPIA CONGELADO IQF CX 10,4 KG" },
+    { vendedor:"JONATAS", pedido:"197201", cliente:"008812/01", clienteNome:"ADEGA ESPANHOLA LTDA", cidade:"LOANDA", regiao:"LOANDA", peso:8112, cx:600, status:"liberado", isIqf:true, produto:"EMPANADO DE FRANGO CONG. PCT 300G CX 3KG" }
   ]
 };
 
@@ -470,6 +489,7 @@ const HEADER_TARGETS = {
   razaoSocial: "razaosocial",
   cidade: "cidade",
   codProduto: "codproduto",
+  produto: "produto",
   qtdLiberada: "qtdliberada",
   pesoCx: "pesocx",
   gestao: "gestaodepedidos",
@@ -508,6 +528,7 @@ function computeDashboard(rawRows, colMap){
     const razaoSocial  = row[colMap.razaoSocial];
     const cidade       = row[colMap.cidade];
     const codProduto   = row[colMap.codProduto];
+    const produtoNome  = row[colMap.produto];
     const qtdLiberadaRaw = row[colMap.qtdLiberada];
     const pesoCxRaw    = row[colMap.pesoCx];
     const gestao       = row[colMap.gestao];
@@ -572,7 +593,8 @@ function computeDashboard(rawRows, colMap){
 
     lineItems.push({
       vendedor: apelido, pedido: pedidoNum || "", cliente: clienteLoja || "",
-      clienteNome: razaoSocial || "", cidade: cidade || "", regiao, peso: N, cx: J, status, isIqf
+      clienteNome: razaoSocial || "", cidade: cidade || "", regiao, peso: N, cx: J, status, isIqf,
+      produto: produtoNome || "(produto não identificado)"
     });
   }
 
@@ -622,7 +644,7 @@ function buildDetail(lineItems, filterFn){
   items.forEach(li => {
     const key = li.pedido || (li.cliente + "|" + li.cidade + "|" + li.regiao + "|" + li.vendedor);
     if(!porPedido.has(key)) porPedido.set(key, {
-      pedido: li.pedido, cliente: li.cliente, clienteNome: li.clienteNome,
+      key, pedido: li.pedido, cliente: li.cliente, clienteNome: li.clienteNome,
       cidade: li.cidade, regiao: li.regiao, vendedor: li.vendedor, peso: 0, status: li.status
     });
     const p = porPedido.get(key);
@@ -667,6 +689,14 @@ function buildVendorDetail(lineItems, vendedorApelido){
 }
 function buildRegionDetail(lineItems, regiao){
   return buildDetail(lineItems, li => li.regiao === regiao);
+}
+
+// Produtos que compõem um pedido específico (mesma lógica de chave do agrupamento acima)
+function getProdutosDoPedido(lineItems, pedidoRecord){
+  return lineItems.filter(li => {
+    const key = li.pedido || (li.cliente + "|" + li.cidade + "|" + li.regiao + "|" + li.vendedor);
+    return key === pedidoRecord.key;
+  });
 }
 /* ============================================================
    ESTADO
@@ -1052,6 +1082,29 @@ function renderLegend(totals, vendedor){
   `;
 }
 
+function openPedidoModal(idx){
+  const p = currentPedidosList[idx];
+  if(!p) return;
+  const produtos = getProdutosDoPedido(latestData.lineItems, p);
+
+  document.getElementById("pedidoModalTitle").textContent = `📦 Pedido ${p.pedido || "—"}`;
+  document.getElementById("pedidoModalSub").textContent = `${p.clienteNome} · ${p.cidade} · ${p.regiao} · Vendedor: ${p.vendedor}`;
+
+  const body = document.getElementById("pedidoModalBody");
+  if(produtos.length === 0){
+    body.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:16px;">Nenhum produto encontrado</td></tr>`;
+  }else{
+    const totalPeso = produtos.reduce((s,li)=>s+li.peso, 0);
+    body.innerHTML = produtos.map(li => `
+      <tr><td>${li.produto}</td><td class="num">${fmt(Math.round(li.peso))}</td></tr>
+    `).join("") + `<tr class="total"><td>Total</td><td class="num">${fmt(Math.round(totalPeso))}</td></tr>`;
+  }
+  document.getElementById("pedidoModal").classList.add("show");
+}
+function closePedidoModal(){
+  document.getElementById("pedidoModal").classList.remove("show");
+}
+
 function badge(val, type){
   if(!val) return `<span class="badge zero">0</span>`;
   return `<span class="badge ${type}">${fmt(val)}</span>`;
@@ -1100,11 +1153,14 @@ function renderTable(){
 
 const STATUS_LABEL = { liberado: ["Liberado","green"], pedido: ["Pedido s/gestão","orange"], falta: ["Falta de saldo","red"] };
 
+let currentPedidosList = [];
+
 function renderDetail(mode, value){
   const detail = mode === "vendedor"
     ? buildVendorDetail(latestData.lineItems, value)
     : buildRegionDetail(latestData.lineItems, value);
   const titlePrefix = mode === "vendedor" ? "Pedidos de" : "Pedidos da região";
+  currentPedidosList = detail.pedidos;
 
   document.getElementById("vendorDetailSection").style.display = "block";
   document.getElementById("vendorDetailTitle").textContent = `${titlePrefix} ${value}`;
@@ -1112,9 +1168,9 @@ function renderDetail(mode, value){
   if(detail.pedidos.length === 0){
     body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px;">Nenhum pedido encontrado</td></tr>`;
   }else{
-    body.innerHTML = detail.pedidos.map(p => {
+    body.innerHTML = detail.pedidos.map((p, idx) => {
       const [label, cls] = STATUS_LABEL[p.status] || ["—","zero"];
-      return `<tr>
+      return `<tr class="clickable" onclick="openPedidoModal(${idx})" title="Clique para ver os produtos deste pedido">
         <td class="vendor-name">${p.vendedor}</td><td>${p.pedido || "—"}</td><td>${p.clienteNome}</td><td>${p.cliente}</td>
         <td>${p.cidade}</td><td>${p.regiao}</td>
         <td class="num">${fmt(Math.round(p.peso))}</td>
