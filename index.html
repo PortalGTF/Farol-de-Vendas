@@ -140,7 +140,7 @@
       <div class="btnbar">
         <button class="refresh-btn" id="passwordsBtn" onclick="openPasswordsModal()" style="display:none;">🔑 Trocar senha</button>
         <button class="refresh-btn" id="editFleetBtn" onclick="requestFleetEdit()">🚚 Editar frota</button>
-        <button class="refresh-btn" id="refreshBtn" onclick="loadData()">↻ Atualizar</button>
+        <button class="refresh-btn" id="refreshBtn" onclick="loadAllData()">↻ Atualizar</button>
       </div>
     </div>
   </div>
@@ -354,73 +354,61 @@ rebuildBdMap(REF_BD);
 // "PERFIL MIN", cruzando por "REGIÃO V") da mesma leitura — sem precisar de
 // uma aba separada.
 let bdErrorMessage = "";
-async function loadBdFromSheet(){
-  try{
-    if(!CONFIG.APPS_SCRIPT_URL || CONFIG.APPS_SCRIPT_URL.includes("COLE_AQUI")) throw new Error("backend não configurado");
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
-    let res;
-    try{
-      res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=bdData`, { signal: controller.signal });
-    }finally{ clearTimeout(timer); }
-    if(!res.ok) throw new Error("HTTP "+res.status);
-    const data = await res.json();
-    if(!data.ok) throw new Error(data.error || "erro desconhecido");
-    const rows = data.rows;
-    let headerIdx=-1, cidadeIdx=-1, regiaoIdx=-1, perfilIdx=-1;
-    for(let i=0;i<Math.min(rows.length,6);i++){
-      const normed = (rows[i]||[]).map(normHeader);
-      const ci = normed.indexOf("cidade");
-      const ri = normed.findIndex(h => h.startsWith("regiao"));
-      if(ci>=0 && ri>=0){
-        headerIdx = i; cidadeIdx = ci; regiaoIdx = ri;
-        // duas colunas "PERFIL MIN" -> pega a ÚLTIMA ocorrência (a coluna I)
-        const perfilIdxs = normed.reduce((acc,h,idx)=>{ if(h.startsWith("perfilmin")) acc.push(idx); return acc; }, []);
-        perfilIdx = perfilIdxs.length ? perfilIdxs[perfilIdxs.length-1] : -1;
-        break;
-      }
+// Processa as linhas da aba BD (já buscadas) — cidade->região e perfil mínimo.
+// Lança erro se não reconhecer a estrutura; quem chama decide o fallback.
+function processBdRows(rows){
+  let headerIdx=-1, cidadeIdx=-1, regiaoIdx=-1, perfilIdx=-1;
+  for(let i=0;i<Math.min(rows.length,6);i++){
+    const normed = (rows[i]||[]).map(normHeader);
+    const ci = normed.indexOf("cidade");
+    const ri = normed.findIndex(h => h.startsWith("regiao"));
+    if(ci>=0 && ri>=0){
+      headerIdx = i; cidadeIdx = ci; regiaoIdx = ri;
+      // duas colunas "PERFIL MIN" -> pega a ÚLTIMA ocorrência (a coluna I)
+      const perfilIdxs = normed.reduce((acc,h,idx)=>{ if(h.startsWith("perfilmin")) acc.push(idx); return acc; }, []);
+      perfilIdx = perfilIdxs.length ? perfilIdxs[perfilIdxs.length-1] : -1;
+      break;
     }
-    if(headerIdx===-1) throw new Error(`cabeçalho CIDADE/REGIÃO não encontrado na aba "${CONFIG.BD_SHEET_NAME}"`);
+  }
+  if(headerIdx===-1) throw new Error(`cabeçalho CIDADE/REGIÃO não encontrado na aba "${CONFIG.BD_SHEET_NAME}"`);
 
-    const list = [];
-    const perfilByRegiao = new Map();
-    for(let i=headerIdx+1;i<rows.length;i++){
-      const cidade = rows[i][cidadeIdx];
-      const regiao = rows[i][regiaoIdx];
-      if(cidade && regiao) list.push({cidade, regiao});
-      if(perfilIdx>=0 && regiao){
-        const perfil = rows[i][perfilIdx];
-        const perfilOk = perfil && String(perfil).trim() && String(perfil).trim().toUpperCase() !== "#N/A";
-        if(perfilOk && !perfilByRegiao.has(normKey(regiao))) perfilByRegiao.set(normKey(regiao), perfil);
-      }
+  const list = [];
+  const perfilByRegiao = new Map();
+  for(let i=headerIdx+1;i<rows.length;i++){
+    const cidade = rows[i][cidadeIdx];
+    const regiao = rows[i][regiaoIdx];
+    if(cidade && regiao) list.push({cidade, regiao});
+    if(perfilIdx>=0 && regiao){
+      const perfil = rows[i][perfilIdx];
+      const perfilOk = perfil && String(perfil).trim() && String(perfil).trim().toUpperCase() !== "#N/A";
+      if(perfilOk && !perfilByRegiao.has(normKey(regiao))) perfilByRegiao.set(normKey(regiao), perfil);
     }
-    if(list.length===0) throw new Error("nenhuma linha de dados encontrada");
-    rebuildBdMap(list);
-    bdSource = "ao vivo";
-    bdRowCount = list.length;
-    bdErrorMessage = "";
+  }
+  if(list.length===0) throw new Error("nenhuma linha de dados encontrada");
+  rebuildBdMap(list);
+  bdSource = "ao vivo";
+  bdRowCount = list.length;
+  bdErrorMessage = "";
 
-    if(perfilIdx>=0 && perfilByRegiao.size>0){
-      perfilMap.clear();
-      perfilByRegiao.forEach((v,k) => perfilMap.set(k, v));
-      perfilSource = "ao vivo (aba BD)";
-      perfilRowCount = perfilByRegiao.size;
-    }else{
-      rebuildPerfilMap(REF_PERFIL);
-      perfilSource = "embutida (backup)";
-      perfilRowCount = REF_PERFIL.length;
-    }
-  }catch(e){
-    const msg = e.name === "AbortError" ? "tempo esgotado (15s) esperando resposta do servidor" : e.message;
-    console.warn("BD ao vivo indisponível, usando cópia embutida:", msg);
-    bdErrorMessage = msg;
-    rebuildBdMap(REF_BD);
-    bdSource = "embutida (backup)";
-    bdRowCount = REF_BD.length;
+  if(perfilIdx>=0 && perfilByRegiao.size>0){
+    perfilMap.clear();
+    perfilByRegiao.forEach((v,k) => perfilMap.set(k, v));
+    perfilSource = "ao vivo (aba BD)";
+    perfilRowCount = perfilByRegiao.size;
+  }else{
     rebuildPerfilMap(REF_PERFIL);
     perfilSource = "embutida (backup)";
     perfilRowCount = REF_PERFIL.length;
   }
+}
+function useBdFallback(msg){
+  bdErrorMessage = msg;
+  rebuildBdMap(REF_BD);
+  bdSource = "embutida (backup)";
+  bdRowCount = REF_BD.length;
+  rebuildPerfilMap(REF_PERFIL);
+  perfilSource = "embutida (backup)";
+  perfilRowCount = REF_PERFIL.length;
 }
 
 const perfilMap = new Map();
@@ -706,9 +694,6 @@ let usingSample = false;
 let fleet = { ...DEFAULT_FLEET };
 let usingDemoAuth = false;
 
-function apiUrl(action){
-  return `${CONFIG.APPS_SCRIPT_URL}${action ? "?action="+action : ""}`;
-}
 function backendConfigured(){
   return CONFIG.APPS_SCRIPT_URL && !CONFIG.APPS_SCRIPT_URL.includes("COLE_AQUI");
 }
@@ -823,18 +808,8 @@ function onFleetUnlocked(){
 }
 
 /* ============================================================
-   FROTA — lida e salva no backend (Google Sheets via Apps Script)
+   FROTA — salva no backend (Google Sheets via Apps Script)
    ============================================================ */
-async function loadFleet(){
-  if(!backendConfigured()) return; // fica no DEFAULT_FLEET
-  try{
-    const res = await fetch(apiUrl("fleet"));
-    const data = await res.json();
-    if(data.ok) fleet = data.fleet;
-  }catch(e){
-    console.warn("Frota: sem conexão com o backend, usando valores padrão:", e.message);
-  }
-}
 async function saveFleet(){
   const form = document.getElementById("fleetForm");
   const newFleet = {};
@@ -919,7 +894,11 @@ function closeFleetModal(){
    ============================================================ */
 let sheetLastModified = null;
 
-async function loadData(){
+/* ============================================================
+   CARREGAMENTO — frota + base + BD numa ÚNICA chamada ao servidor
+   (mais rápido, e uma parte falhar não derruba as outras)
+   ============================================================ */
+async function loadAllData(){
   const btn = document.getElementById("refreshBtn");
   if(btn) btn.textContent = "⟳ Atualizando...";
   try{
@@ -928,12 +907,26 @@ async function loadData(){
     const timer = setTimeout(() => controller.abort(), 20000);
     let res;
     try{
-      res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=baseData`, { signal: controller.signal });
+      res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=allData`, { signal: controller.signal });
     }finally{ clearTimeout(timer); }
     if(!res.ok) throw new Error("HTTP "+res.status);
     const data = await res.json();
     if(!data.ok) throw new Error(data.error || "erro desconhecido");
-    const parsed = data.rows.filter(r => r.length>1 && r.some(c=>c!==""));
+
+    // frota
+    if(data.fleet) fleet = data.fleet;
+
+    // BD + perfil mínimo (não derruba a base se falhar)
+    if(data.bd && data.bd.ok){
+      try{ processBdRows(data.bd.rows); }
+      catch(e){ useBdFallback(e.message); }
+    }else{
+      useBdFallback((data.bd && data.bd.error) || "aba BD não retornada pelo servidor");
+    }
+
+    // base bruta (essa sim precisa dar certo pro painel funcionar)
+    if(!data.base || !data.base.ok) throw new Error((data.base && data.base.error) || "base bruta não retornada pelo servidor");
+    const parsed = data.base.rows.filter(r => r.length>1 && r.some(c=>c!==""));
     if(parsed.length < 2) throw new Error("planilha vazia ou sem dados reconhecíveis");
     const header = parsed[0];
     const colMap = buildColumnMap(header);
@@ -1195,10 +1188,8 @@ function renderDetail(mode, value){
    ============================================================ */
 async function startApp(){
   loadFromCacheIfAny(); // mostra a última versão salva na hora, sem esperar rede
-  await loadFleet();
-  await loadBdFromSheet();
-  await loadData();
-  setInterval(async () => { await loadBdFromSheet(); await loadData(); }, CONFIG.REFRESH_MS);
+  await loadAllData();
+  setInterval(loadAllData, CONFIG.REFRESH_MS);
 }
 
 (function init(){
