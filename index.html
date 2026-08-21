@@ -360,9 +360,12 @@ function capacityPalletsForProfile(key){
 
 // Regiões onde o total de pallets necessários (normais + IQF) já
 // ultrapassa a capacidade de pallets da frota de hoje pro perfil exigido.
-function computeCubageWarnings(){
-  const warnings = [];
-  if(!latestData) return warnings;
+// Retorna o status de cubagem de TODAS as regiões (não só as com problema).
+// "problema" só fica true quando falta 20% ou mais da capacidade de pallets
+// do perfil mínimo daquela região — estouros pequenos não são sinalizados.
+function computeCubageStatus(){
+  const status = [];
+  if(!latestData) return status;
   const iqfByRegion = new Map(latestData.iqfSummary.map(r => [r[0], r[2]]));
   latestData.regionSummary.forEach(([regiao, clientes, peso]) => {
     const iqfPeso = iqfByRegion.get(regiao) || 0;
@@ -375,11 +378,15 @@ function computeCubageWarnings(){
     const perfilText = row ? row[2] : "";
     const key = normalizePerfilKey(perfilText);
     const capacity = key ? capacityPalletsForProfile(key) : null;
-    if(capacity !== null && totalPallets > capacity){
-      warnings.push({ regiao, peso, iqfPeso, normalPeso, palletsNormais, palletsIqf, totalPallets, capacity, perfilText });
-    }
+    const deficit = capacity !== null ? (totalPallets - capacity) : null;
+    const problema = capacity !== null && capacity > 0 && deficit >= capacity * 0.20;
+
+    status.push({ regiao, peso, iqfPeso, normalPeso, palletsNormais, palletsIqf, totalPallets, capacity, deficit, perfilText, problema });
   });
-  return warnings.sort((a,b) => (b.totalPallets-b.capacity) - (a.totalPallets-a.capacity));
+  return status.sort((a,b) => b.peso - a.peso); // por peso, do maior pro menor
+}
+function computeCubageWarnings(){
+  return computeCubageStatus().filter(s => s.problema).sort((a,b) => (b.deficit) - (a.deficit));
 }
 
 // Usado só quando o fetch externo falha (ex: dentro do preview do Claude),
@@ -1379,12 +1386,13 @@ let currentResumoCanvas = null;
 
 function generateResumoImage(){
   const d = latestData;
-  const cubagem = computeCubageWarnings();
+  const status = computeCubageStatus();
+  const cubagem = status.filter(s => s.problema);
   const W = 900;
 
   let H = 430;
   H += cubagem.length ? (50 + cubagem.length*72) : 46;
-  H += Math.min(d.regionSummary.length, 6) * 28 + 60;
+  H += status.length * 30 + 60; // lista TODAS as regiões, não só as top 6
 
   const canvas = document.createElement("canvas");
   canvas.width = W; canvas.height = H;
@@ -1426,6 +1434,7 @@ function generateResumoImage(){
 
   let y = 232;
 
+  // só entra aqui quando falta 20%+ da capacidade de pallets do perfil
   if(cubagem.length){
     ctx.fillStyle = "#c62f2f"; ctx.font = "bold 17px Calibri, Arial";
     ctx.fillText(`🚫 Regiões sem cubagem disponível (${cubagem.length})`, 24, y);
@@ -1438,7 +1447,7 @@ function generateResumoImage(){
       ctx.fillText(w.regiao, 40, y+24);
       ctx.font = "12px Calibri, Arial";
       ctx.fillText(
-        `Precisa de ${w.totalPallets.toFixed(1)} pallets (cap. ${w.capacity}) · IQF ocupando ${fmt(Math.round(w.iqfPeso))} kg · perfil ${w.perfilText}`,
+        `Precisa de ${w.totalPallets.toFixed(1)} pallets (cap. ${w.capacity}) · falta ${fmt(Math.round(w.deficit))} pallets · IQF ocupando ${fmt(Math.round(w.iqfPeso))} kg · perfil ${w.perfilText}`,
         40, y+46
       );
       y += 64;
@@ -1446,19 +1455,23 @@ function generateResumoImage(){
     y += 20;
   }else{
     ctx.fillStyle = "#1c8a4c"; ctx.font = "bold 15px Calibri, Arial";
-    ctx.fillText("✅ Nenhuma região com estouro de cubagem no momento", 24, y);
+    ctx.fillText("✅ Nenhuma região com falta significativa de cubagem no momento", 24, y);
     y += 36;
   }
 
+  // TODAS as regiões, com o peso já colocado no farol
   ctx.fillStyle = "#0E1B2C"; ctx.font = "bold 15px Calibri, Arial";
-  ctx.fillText("Peso por região (top 6)", 24, y);
-  y += 8;
-  d.regionSummary.slice(0,6).forEach(r => {
-    y += 28;
-    ctx.fillStyle = "#1a2238"; ctx.font = "13px Calibri, Arial";
-    ctx.fillText(r[0], 32, y);
+  ctx.fillText(`Peso por região — todas (${status.length})`, 24, y);
+  y += 6;
+  status.forEach(s => {
+    y += 30;
+    ctx.fillStyle = s.problema ? "#fde7e7" : "#fff";
+    roundRect(ctx, 24, y-19, W-48, 26, 6); ctx.fill();
+    ctx.fillStyle = s.problema ? "#8a2323" : "#1a2238";
+    ctx.font = s.problema ? "bold 12.5px Calibri, Arial" : "12.5px Calibri, Arial";
+    ctx.fillText((s.problema ? "⚠ " : "") + s.regiao, 34, y);
     ctx.textAlign = "right";
-    ctx.fillText(fmt(r[2])+" kg", W-32, y);
+    ctx.fillText(fmt(Math.round(s.peso))+" kg", W-34, y);
     ctx.textAlign = "left";
   });
 
