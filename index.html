@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Farol">
 <link rel="icon" href="icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --navy:#0E1B2C; --navy-2:#16283d; --navy-3:#1c344d;
@@ -43,6 +44,8 @@
   .update-badge .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gold);margin-right:5px;}
   .meta.err .update-badge .dot{background:var(--red);}
   .meta.err .update-badge .val{color:#ffd7d7;}
+  .meta.ok .update-badge .dot{background:var(--green);}
+  .meta.ok .update-badge .status{color:#9ee6bb;}
   .btnbar{display:flex;gap:6px;justify-content:flex-end;margin-top:6px;}
   .refresh-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;padding:5px 12px;border-radius:20px;font-size:11.5px;cursor:pointer;}
   .refresh-btn:hover{background:rgba(255,255,255,.22);}
@@ -79,6 +82,18 @@
   table.main tbody td{padding:7px 8px;border-top:1px solid var(--line);white-space:nowrap;}
   table.main tbody td.num{text-align:center;font-variant-numeric:tabular-nums;}
   table.main tbody tr:hover{background:#f7f9fd;}
+  table.main tbody tr.clickable{cursor:pointer;}
+  .capacity-warn{box-shadow:inset 3px 0 0 var(--red);}
+  .export-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+  .export-btn{background:var(--card);border:1px solid var(--line);color:var(--ink);padding:7px 14px;border-radius:20px;font-size:12.5px;font-weight:600;cursor:pointer;}
+  .export-btn:hover{background:var(--paper);border-color:var(--navy-3);}
+  @media print{
+    .no-print, .topbar, .app-tabs, .search-wrap, .fleet-groups,
+    .side-grid, .banner, .footer, .cards{display:none !important;}
+    body{background:#fff;}
+    .table-card{box-shadow:none;border:1px solid #ccc;}
+    .wrap{padding:0;max-width:none;}
+  }
   table.main tbody tr.clickable{cursor:pointer;}
   table.main tbody tr.match{background:#fff6e0;}
   .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-weight:700;font-size:11.5px;min-width:34px;text-align:center;}
@@ -139,6 +154,7 @@
       </div>
       <div class="btnbar">
         <button class="refresh-btn" id="passwordsBtn" onclick="openPasswordsModal()" style="display:none;">🔑 Trocar senha</button>
+        <button class="refresh-btn" onclick="openResumoModal()" style="background:#25D366;border-color:#25D366;">📤 Resumo pro grupo</button>
         <button class="refresh-btn" id="editFleetBtn" onclick="requestFleetEdit()">🚚 Editar frota</button>
         <button class="refresh-btn" id="refreshBtn" onclick="loadAllData()">↻ Atualizar</button>
       </div>
@@ -170,6 +186,11 @@
 
   <div class="section-title">Volumes no sistema Protheus</div>
   <div class="legend" id="legend"></div>
+  <div class="export-bar no-print">
+    <button class="export-btn" onclick="exportExcel()">📊 Exportar Excel</button>
+    <button class="export-btn" onclick="exportCSV()">📄 Exportar CSV</button>
+    <button class="export-btn" onclick="exportPDF()">🖨️ Exportar PDF</button>
+  </div>
 
   <div class="table-card">
     <div class="table-scroll">
@@ -247,6 +268,22 @@
     </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closePedidoModal()">Fechar</button>
+      <button class="btn-save" style="background:#25D366;" onclick="shareWhatsApp()">📲 Enviar por WhatsApp</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="resumoModal">
+  <div class="modal" style="max-width:640px;">
+    <h3>📤 Resumo pro grupo</h3>
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">Confira como ficou antes de enviar.</p>
+    <div style="max-height:60vh;overflow-y:auto;border:1px solid var(--line);border-radius:10px;">
+      <img id="resumoPreviewImg" style="width:100%;display:block;">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeResumoModal()">Fechar</button>
+      <button class="btn-cancel" onclick="downloadResumoImage()">⬇️ Baixar imagem</button>
+      <button class="btn-save" style="background:#25D366;" onclick="shareResumoWhatsApp()">📲 Compartilhar</button>
     </div>
   </div>
 </div>
@@ -290,14 +327,60 @@ let bdRowCount = REF_BD.length;
 const FLEET_TYPES = [
   { key:"VAN", label:"VAN COMUM", group:"Leves", cap:1700 },
   { key:"VUC", label:"VUC", group:"Leves", cap:2000 },
-  { key:"34",  label:"3/4", group:"Leves", cap:4500 },
+  { key:"34",  label:"3/4", group:"Leves", cap:5000 },
   { key:"TRUCADINHA", label:"TRUCADINHA", group:"Leves", cap:6500 },
   { key:"TOCO", label:"TOCO", group:"Médios", cap:7500 },
-  { key:"TRUCK", label:"TRUCK", group:"Médios", cap:12500 },
-  { key:"BITRUCK", label:"BITRUCK", group:"Médios", cap:16000 },
-  { key:"CARRETA", label:"CARRETA", group:"Pesados", cap:30000 }
+  { key:"TRUCK", label:"TRUCK", group:"Médios", cap:13000 },
+  { key:"BITRUCK", label:"BITRUCK", group:"Médios", cap:16500 },
+  { key:"CARRETA", label:"CARRETA", group:"Pesados", cap:32000 }
 ];
 const DEFAULT_FLEET = {VAN:0,VUC:5,"34":6,TRUCADINHA:2,TOCO:1,TRUCK:1,BITRUCK:0,CARRETA:0};
+
+// ============================================================
+// CUBAGEM (pallets) — além do peso, cada veículo só cabe um número
+// limitado de pallets. Pallet de produto normal ~990kg (55 cx),
+// pallet de IQF ~750kg (75 cx) — mesmo espaço físico, peso menor.
+// Isso significa que muito IQF "rouba" cubagem sem usar todo o peso.
+// ============================================================
+const PESO_PALLET_NORMAL = 990;
+const PESO_PALLET_IQF = 750;
+const PALLET_CAP = { VAN:3, VUC:5, "34":8, TRUCADINHA:8, TOCO:10, TRUCK:14, BITRUCK:16, CARRETA:30 }; // pallets por veículo
+const PALLET_TIER_ORDER = ["VAN","VUC","34","TRUCADINHA","TOCO","TRUCK","BITRUCK","CARRETA"]; // ordem crescente de porte
+
+function capacityPalletsForProfile(key){
+  const idx = PALLET_TIER_ORDER.indexOf(key);
+  if(idx === -1) return null; // perfil não reconhecido (não deveria mais acontecer, cobre todos os tipos)
+  let total = 0;
+  for(let i=idx;i<PALLET_TIER_ORDER.length;i++){
+    const k = PALLET_TIER_ORDER[i];
+    total += (fleet[k]||0) * PALLET_CAP[k];
+  }
+  return total;
+}
+
+// Regiões onde o total de pallets necessários (normais + IQF) já
+// ultrapassa a capacidade de pallets da frota de hoje pro perfil exigido.
+function computeCubageWarnings(){
+  const warnings = [];
+  if(!latestData) return warnings;
+  const iqfByRegion = new Map(latestData.iqfSummary.map(r => [r[0], r[2]]));
+  latestData.regionSummary.forEach(([regiao, clientes, peso]) => {
+    const iqfPeso = iqfByRegion.get(regiao) || 0;
+    const normalPeso = Math.max(0, peso - iqfPeso);
+    const palletsNormais = normalPeso / PESO_PALLET_NORMAL;
+    const palletsIqf = iqfPeso / PESO_PALLET_IQF;
+    const totalPallets = palletsNormais + palletsIqf;
+
+    const row = latestData.rows.find(r => r[1] === regiao);
+    const perfilText = row ? row[2] : "";
+    const key = normalizePerfilKey(perfilText);
+    const capacity = key ? capacityPalletsForProfile(key) : null;
+    if(capacity !== null && totalPallets > capacity){
+      warnings.push({ regiao, peso, iqfPeso, normalPeso, palletsNormais, palletsIqf, totalPallets, capacity, perfilText });
+    }
+  });
+  return warnings.sort((a,b) => (b.totalPallets-b.capacity) - (a.totalPallets-a.capacity));
+}
 
 // Usado só quando o fetch externo falha (ex: dentro do preview do Claude),
 // pra você conseguir avaliar o layout mesmo sem conexão real com a planilha.
@@ -989,8 +1072,10 @@ function loadFromCacheIfAny(){
 
 function setStatus(ok, msg){
   const meta = document.getElementById("metaBox");
+  const fullySynced = ok && !usingSample && bdSource === "ao vivo" && perfilSource === "ao vivo (aba BD)";
   meta.classList.toggle("err", !ok);
-  document.getElementById("statusText").textContent = msg;
+  meta.classList.toggle("ok", fullySynced);
+  document.getElementById("statusText").textContent = fullySynced ? "Sincronizado agora mesmo" : msg;
   document.getElementById("lastUpdate").textContent = sheetLastModified
     ? sheetLastModified.toLocaleString("pt-BR")
     : "—";
@@ -1063,7 +1148,54 @@ function render(){
 
   renderLegend(d.totals, null);
 
+  computeCapacityWarnings();
+  renderCapacityBanner();
   renderTable();
+}
+
+/* ============================================================
+   ALERTA DE CAPACIDADE (peso) — sinaliza quando o "Pedido s/gestão"
+   de um perfil mínimo ultrapassa a capacidade de peso disponível
+   de veículos daquele porte (ou maior) na frota do dia.
+   ============================================================ */
+function normalizePerfilKey(text){
+  const t = String(text||"").toUpperCase();
+  if(t.includes("CARRETA")) return "CARRETA";
+  if(t.includes("BITRUCK")) return "BITRUCK";
+  if(t.includes("TRUCADINHA")) return "TRUCADINHA";
+  if(t.includes("TRUCK")) return "TRUCK";
+  if(t.includes("TOCO")) return "TOCO";
+  if(t.includes("3/4")) return "34";
+  if(t.includes("VUC")) return "VUC";
+  if(t.includes("VAN")) return "VAN";
+  return null;
+}
+function capacityForProfile(key){
+  const idx = FLEET_TYPES.findIndex(t => t.key === key);
+  if(idx === -1) return Infinity;
+  let total = 0;
+  for(let i=idx;i<FLEET_TYPES.length;i++) total += (fleet[FLEET_TYPES[i].key]||0) * FLEET_TYPES[i].cap;
+  return total;
+}
+let overCapacityProfiles = new Set();
+function computeCapacityWarnings(){
+  overCapacityProfiles = new Set();
+  if(!latestData || !latestData.rows) return;
+  const totalsByProfile = new Map();
+  latestData.rows.forEach(r => {
+    const key = normalizePerfilKey(r[2]);
+    if(!key) return;
+    totalsByProfile.set(key, (totalsByProfile.get(key)||0) + (r[7]||0)); // r[7] = Pedido s/gestão
+  });
+  totalsByProfile.forEach((total, key) => {
+    if(total > capacityForProfile(key)) overCapacityProfiles.add(key);
+  });
+}
+function renderCapacityBanner(){
+  if(overCapacityProfiles.size === 0) return;
+  const labels = FLEET_TYPES.filter(t => overCapacityProfiles.has(t.key)).map(t => t.label);
+  const html = `<div class="banner" style="background:#fde7e7;border-color:#f3b8b8;color:#8a2323;">🚚⚠ <b>Capacidade de peso insuficiente</b> pro perfil mínimo: <b>${labels.join(", ")}</b> — o total de "Pedido s/gestão" que exige esse porte de veículo (ou maior) é maior que a frota disponível hoje. As linhas afetadas estão marcadas na tabela.</div>`;
+  document.getElementById("bannerArea").innerHTML += html;
 }
 
 function renderLegend(totals, vendedor){
@@ -1075,6 +1207,8 @@ function renderLegend(totals, vendedor){
   `;
 }
 
+let currentPedidoShare = null;
+
 function openPedidoModal(idx){
   const p = currentPedidosList[idx];
   if(!p) return;
@@ -1084,24 +1218,40 @@ function openPedidoModal(idx){
   document.getElementById("pedidoModalSub").textContent = `${p.clienteNome} · ${p.cidade} · ${p.regiao} · Vendedor: ${p.vendedor}`;
 
   const body = document.getElementById("pedidoModalBody");
+  let totalPeso = 0;
   if(produtos.length === 0){
     body.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:16px;">Nenhum produto encontrado</td></tr>`;
   }else{
-    const totalPeso = produtos.reduce((s,li)=>s+li.peso, 0);
+    totalPeso = produtos.reduce((s,li)=>s+li.peso, 0);
     body.innerHTML = produtos.map(li => `
       <tr><td>${li.produto}</td><td class="num">${fmt(Math.round(li.peso))}</td></tr>
     `).join("") + `<tr class="total"><td>Total</td><td class="num">${fmt(Math.round(totalPeso))}</td></tr>`;
   }
+  currentPedidoShare = { pedido: p, produtos, totalPeso };
   document.getElementById("pedidoModal").classList.add("show");
 }
 function closePedidoModal(){
   document.getElementById("pedidoModal").classList.remove("show");
+}
+function shareWhatsApp(){
+  if(!currentPedidoShare) return;
+  const { pedido: p, produtos, totalPeso } = currentPedidoShare;
+  let texto = `*Pedido ${p.pedido || "—"}*\n`;
+  texto += `Cliente: ${p.clienteNome} (${p.cliente})\n`;
+  texto += `Cidade/Região: ${p.cidade} · ${p.regiao}\n`;
+  texto += `Vendedor: ${p.vendedor}\n\n`;
+  texto += `*Produtos:*\n`;
+  produtos.forEach(li => { texto += `• ${li.produto} — ${fmt(Math.round(li.peso))} kg\n`; });
+  texto += `\n*Peso total: ${fmt(Math.round(totalPeso))} kg*`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
 }
 
 function badge(val, type){
   if(!val) return `<span class="badge zero">0</span>`;
   return `<span class="badge ${type}">${fmt(val)}</span>`;
 }
+
+let currentFilteredRows = [];
 
 function renderTable(){
   if(!latestData) return;
@@ -1110,13 +1260,18 @@ function renderTable(){
   const rows = latestData.rows.filter(r =>
     !q || r[0].toLowerCase().includes(q) || r[1].toLowerCase().includes(q)
   );
+  currentFilteredRows = rows;
   if(rows.length===0){
     body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">Nenhum resultado</td></tr>`;
   }else{
     body.innerHTML = rows.map(r => {
       const match = q && r[0].toLowerCase().includes(q);
-      return `<tr class="${match?'match':''}">
-        <td class="vendor-name">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td>
+      const profileKey = normalizePerfilKey(r[2]);
+      const warn = profileKey && overCapacityProfiles.has(profileKey);
+      const rowClass = [match?"match":"", warn?"capacity-warn":""].filter(Boolean).join(" ");
+      const warnTitle = warn ? `title="⚠ O total de pedidos s/gestão que precisam de ${r[2]} supera a capacidade de peso disponível da frota de hoje"` : "";
+      return `<tr class="${rowClass}" ${warnTitle}>
+        <td class="vendor-name">${r[0]}</td><td>${r[1]}</td><td>${r[2]}${warn?' <span style="color:var(--red);">⚠</span>':''}</td>
         <td class="num">${fmt(r[3])}</td><td class="num">${fmt(r[4])}</td><td class="num">${fmt(r[5])}</td>
         <td class="num">${badge(r[6],"red")}</td><td class="num">${badge(r[7],"orange")}</td><td class="num">${badge(r[8],"green")}</td>
       </tr>`;
@@ -1204,6 +1359,190 @@ async function startApp(){
   }
   startApp();
 })();
+
+/* ============================================================
+   RESUMO EM IMAGEM — pra compartilhar no grupo do WhatsApp.
+   Desenha um cartão com os números principais + destaque das
+   regiões sem cubagem disponível (peso OK mas sem espaço de pallet).
+   ============================================================ */
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+let currentResumoCanvas = null;
+
+function generateResumoImage(){
+  const d = latestData;
+  const cubagem = computeCubageWarnings();
+  const W = 900;
+
+  let H = 430;
+  H += cubagem.length ? (50 + cubagem.length*72) : 46;
+  H += Math.min(d.regionSummary.length, 6) * 28 + 60;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#f4f6fb";
+  ctx.fillRect(0,0,W,H);
+
+  ctx.fillStyle = "#0E1B2C";
+  ctx.fillRect(0,0,W,112);
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 26px Calibri, Arial";
+  ctx.fillText("MERCADO INTERNO | FAROL DE VENDAS", 24, 46);
+  ctx.font = "italic 15px Calibri, Arial";
+  ctx.fillStyle = "#b9c6ec";
+  ctx.fillText(d.filial || "APUCARANA", 24, 69);
+  ctx.font = "13px Calibri, Arial";
+  ctx.fillText("Atualizado em " + (sheetLastModified ? sheetLastModified.toLocaleString("pt-BR") : "—"), 24, 93);
+
+  const qtdVeiculos = Object.values(fleet).reduce((s,v)=>s+(v||0),0);
+  const capEmbarque = FLEET_TYPES.reduce((s,t)=> s + (fleet[t.key]||0)*t.cap, 0);
+  const cards = [
+    ["VOLUME PREVISTO", fmt(d.header.volumePrevisto)+" kg"],
+    ["QTD VEÍCULOS", fmt(qtdVeiculos)],
+    ["CAP. EMBARQUE", fmt(capEmbarque)+" kg"],
+    ["PEDIDO S/GESTÃO", fmt(d.totals.pedido)+" kg"]
+  ];
+  const cardW = (W - 24*2 - 3*14) / 4;
+  cards.forEach((c,i) => {
+    const x = 24 + i*(cardW+14);
+    const y = 132;
+    ctx.fillStyle = "#fff";
+    roundRect(ctx, x, y, cardW, 68, 10); ctx.fill();
+    ctx.fillStyle = "#6b7590"; ctx.font = "11px Calibri, Arial";
+    ctx.fillText(c[0], x+12, y+24);
+    ctx.fillStyle = "#0E1B2C"; ctx.font = "bold 19px Calibri, Arial";
+    ctx.fillText(c[1], x+12, y+50);
+  });
+
+  let y = 232;
+
+  if(cubagem.length){
+    ctx.fillStyle = "#c62f2f"; ctx.font = "bold 17px Calibri, Arial";
+    ctx.fillText(`🚫 Regiões sem cubagem disponível (${cubagem.length})`, 24, y);
+    y += 16;
+    cubagem.forEach(w => {
+      y += 16;
+      ctx.fillStyle = "#fde7e7";
+      roundRect(ctx, 24, y, W-48, 64, 8); ctx.fill();
+      ctx.fillStyle = "#8a2323"; ctx.font = "bold 15px Calibri, Arial";
+      ctx.fillText(w.regiao, 40, y+24);
+      ctx.font = "12px Calibri, Arial";
+      ctx.fillText(
+        `Precisa de ${w.totalPallets.toFixed(1)} pallets (cap. ${w.capacity}) · IQF ocupando ${fmt(Math.round(w.iqfPeso))} kg · perfil ${w.perfilText}`,
+        40, y+46
+      );
+      y += 64;
+    });
+    y += 20;
+  }else{
+    ctx.fillStyle = "#1c8a4c"; ctx.font = "bold 15px Calibri, Arial";
+    ctx.fillText("✅ Nenhuma região com estouro de cubagem no momento", 24, y);
+    y += 36;
+  }
+
+  ctx.fillStyle = "#0E1B2C"; ctx.font = "bold 15px Calibri, Arial";
+  ctx.fillText("Peso por região (top 6)", 24, y);
+  y += 8;
+  d.regionSummary.slice(0,6).forEach(r => {
+    y += 28;
+    ctx.fillStyle = "#1a2238"; ctx.font = "13px Calibri, Arial";
+    ctx.fillText(r[0], 32, y);
+    ctx.textAlign = "right";
+    ctx.fillText(fmt(r[2])+" kg", W-32, y);
+    ctx.textAlign = "left";
+  });
+
+  ctx.fillStyle = "#9099ac"; ctx.font = "11px Calibri, Arial";
+  ctx.fillText("Gerado automaticamente pelo Farol de Vendas", 24, H-16);
+
+  currentResumoCanvas = canvas;
+  return canvas;
+}
+
+function openResumoModal(){
+  if(!latestData){ alert("Ainda não há dados carregados."); return; }
+  const canvas = generateResumoImage();
+  document.getElementById("resumoPreviewImg").src = canvas.toDataURL("image/png");
+  document.getElementById("resumoModal").classList.add("show");
+}
+function closeResumoModal(){
+  document.getElementById("resumoModal").classList.remove("show");
+}
+function resumoFileName(){
+  return `farol-resumo_${new Date().toISOString().slice(0,10)}.png`;
+}
+function downloadResumoImage(){
+  if(!currentResumoCanvas) return;
+  currentResumoCanvas.toBlob(blob => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = resumoFileName();
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }, "image/png");
+}
+function shareResumoWhatsApp(){
+  if(!currentResumoCanvas) return;
+  currentResumoCanvas.toBlob(async (blob) => {
+    const file = new File([blob], resumoFileName(), { type: "image/png" });
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      try{
+        await navigator.share({ files: [file], title: "Farol de Vendas", text: "Resumo do Farol de Vendas" });
+        return;
+      }catch(e){
+        console.warn("Compartilhamento cancelado ou indisponível:", e.message);
+      }
+    }
+    downloadResumoImage();
+    alert("Seu navegador não permite anexar a imagem direto. Ela foi baixada — agora é só abrir o WhatsApp e anexar no grupo.");
+    window.open("https://web.whatsapp.com/", "_blank");
+  }, "image/png");
+}
+
+/* ============================================================
+   EXPORTAR (Excel / CSV / PDF) — respeita o filtro de busca atual
+   ============================================================ */
+const EXPORT_HEADERS = ["Vendedor","Região","Perfil Mínimo","Peso","Clientes","CX","Falta de Saldo","Pedido s/Gestão","Liberado"];
+
+function exportFileName(ext){
+  const q = document.getElementById("searchInput").value.trim();
+  const stamp = new Date().toISOString().slice(0,16).replace("T","_").replace(":","h");
+  const suffix = q ? `_${q.replace(/[^a-z0-9]+/gi,"-")}` : "";
+  return `farol-de-vendas${suffix}_${stamp}.${ext}`;
+}
+function exportCSV(){
+  if(!currentFilteredRows.length){ alert("Nenhum dado pra exportar."); return; }
+  const lines = [EXPORT_HEADERS.join(";")].concat(currentFilteredRows.map(r => r.join(";")));
+  const csv = "\uFEFF" + lines.join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = exportFileName("csv");
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function exportExcel(){
+  if(!currentFilteredRows.length){ alert("Nenhum dado pra exportar."); return; }
+  const aoa = [EXPORT_HEADERS, ...currentFilteredRows];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = EXPORT_HEADERS.map(() => ({ wch: 16 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Farol de Vendas");
+  XLSX.writeFile(wb, exportFileName("xlsx"));
+}
+function exportPDF(){
+  window.print();
+}
 
 /* ============================================================
    PWA: registra o service worker (permite instalar no celular)
