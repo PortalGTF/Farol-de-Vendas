@@ -1,7 +1,7 @@
 // Service worker: só cacheia o "esqueleto" do app (HTML/ícones/manifest).
 // Os dados da planilha (Google Sheets) NUNCA são cacheados aqui —
 // sempre buscados direto na rede, pra nunca mostrar dado velho.
-const CACHE_NAME = "farol-shell-v1";
+const CACHE_NAME = "farol-shell-v2";
 const SHELL_FILES = ["./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {
