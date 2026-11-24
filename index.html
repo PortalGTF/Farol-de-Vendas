@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Farol Terra Boa</title>
+<title>Farol de Vendas</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0000D0">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Farol Terra Boa">
+<meta name="apple-mobile-web-app-title" content="Farol de Vendas">
 <link rel="icon" href="icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -135,7 +135,8 @@
 <div id="appRoot">
 <div class="app-tabs">
   <a href="https://portalgtf.github.io/" class="app-tab">🗺️ Monitoramento</a>
-  <a href="#" class="app-tab active">⚙️ Farol Terra Boa</a>
+  <a href="#" class="app-tab active" id="tabTB" onclick="setFilial('TB');return false;">⚙️ Farol Terra Boa</a>
+  <a href="#" class="app-tab" id="tabAP" onclick="setFilial('AP');return false;">⚙️ Farol Apucarana</a>
 </div>
 <div class="topbar">
   <div class="topbar-row">
@@ -314,8 +315,14 @@ const CONFIG = {
   BD_SHEET_NAME: "BD",     // nome exato da aba BD (cidade -> região) — buscada ao vivo
   APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbwU5Kp0UKnO6DaTFT_KRWbkbgIs7Yf0hUhSaqCXELitL3c2ZCH8cqfhO22BJpIg6o-1/exec", // termina em /exec
   REFRESH_MS: 3 * 60 * 1000,
-  FILIAL: "TERRA BOA"
+  FILIAL: "TERRA BOA",
+  FILIAIS: { TB:{ nome:"TERRA BOA", loja:26 }, AP:{ nome:"APUCARANA", loja:52 } }
 };
+let currentFilial = "TB";
+try{ const sf = localStorage.getItem("farol_filial"); if(sf==="TB"||sf==="AP") currentFilial = sf; }catch(e){}
+try{ const qf = (new URLSearchParams(location.search).get("filial")||"").toUpperCase(); if(qf==="TB"||qf==="AP"){ currentFilial = qf; try{ localStorage.setItem("farol_filial", qf); }catch(e){} } }catch(e){}
+let allDash = null; // { TB:dados, AP:dados }
+const ZERO_FLEET = {VAN:0,VUC:0,"34":0,TRUCADINHA:0,TOCO:0,TRUCK:0,BITRUCK:0,CARRETA:0};
 
 // Só usada se o Apps Script ainda não estiver configurado/alcançável
 // (ex: aqui dentro do preview do Claude) — pra você conseguir testar o layout.
@@ -434,7 +441,11 @@ function normKey(s){
   return String(s).trim().toUpperCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 }
-const bdMap = new Map();
+const bdMaps = { TB:new Map(), AP:new Map() };
+const perfilMaps = { TB:new Map(), AP:new Map() };
+let bdMap = bdMaps.TB;
+let perfilMap = perfilMaps.TB;
+function useFilialMaps(f){ bdMap = bdMaps[f]; perfilMap = perfilMaps[f]; }
 function rebuildBdMap(list){
   bdMap.clear();
   list.forEach(r => { const k = normKey(r.cidade); if(k && !bdMap.has(k)) bdMap.set(k, r.regiao); });
@@ -465,46 +476,57 @@ function processBdRows(rows){
   }
   if(headerIdx===-1) throw new Error(`cabeçalho CIDADE/REGIÃO não encontrado na aba "${CONFIG.BD_SHEET_NAME}"`);
 
-  const list = [];
-  const perfilByRegiao = new Map();
+  const filialIdx = cidadeIdx > 0 ? 0 : -1; // coluna A = filial (TERRA BOA / UNIFRANGO)
+  const lists = { TB:[], AP:[] };
+  const perfilBy = { TB:new Map(), AP:new Map() };
   for(let i=headerIdx+1;i<rows.length;i++){
     const cidade = rows[i][cidadeIdx];
     const regiao = rows[i][regiaoIdx];
-    if(cidade && regiao) list.push({cidade, regiao});
+    let f = "TB";
+    if(filialIdx>=0){
+      const fv = normKey(rows[i][filialIdx]);
+      if(fv.includes("UNIFRANGO") || fv.includes("APUCARANA")) f = "AP";
+    }
+    if(cidade && regiao) lists[f].push({cidade, regiao});
     if(perfilIdx>=0 && regiao){
       const perfil = rows[i][perfilIdx];
       const perfilOk = perfil && String(perfil).trim() && String(perfil).trim().toUpperCase() !== "#N/A";
-      if(perfilOk && !perfilByRegiao.has(normKey(regiao))) perfilByRegiao.set(normKey(regiao), perfil);
+      if(perfilOk && !perfilBy[f].has(normKey(regiao))) perfilBy[f].set(normKey(regiao), perfil);
     }
   }
-  if(list.length===0) throw new Error("nenhuma linha de dados encontrada");
-  rebuildBdMap(list);
-  bdSource = "ao vivo";
-  bdRowCount = list.length;
-  bdErrorMessage = "";
-
-  if(perfilIdx>=0 && perfilByRegiao.size>0){
+  if(lists.TB.length===0 && lists.AP.length===0) throw new Error("nenhuma linha de dados encontrada");
+  ["TB","AP"].forEach(f => {
+    useFilialMaps(f);
+    rebuildBdMap(lists[f]);
     perfilMap.clear();
-    perfilByRegiao.forEach((v,k) => perfilMap.set(k, v));
+    perfilBy[f].forEach((v,k) => perfilMap.set(k, v));
+  });
+  useFilialMaps(currentFilial);
+  bdSource = "ao vivo";
+  bdRowCount = lists.TB.length + lists.AP.length;
+  bdErrorMessage = "";
+  if(perfilIdx>=0 && (perfilBy.TB.size>0 || perfilBy.AP.size>0)){
     perfilSource = "ao vivo (aba BD)";
-    perfilRowCount = perfilByRegiao.size;
+    perfilRowCount = perfilBy.TB.size + perfilBy.AP.size;
   }else{
-    rebuildPerfilMap(REF_PERFIL);
+    useFilialMaps("TB"); rebuildPerfilMap(REF_PERFIL); useFilialMaps(currentFilial);
     perfilSource = "embutida (backup)";
     perfilRowCount = REF_PERFIL.length;
   }
 }
 function useBdFallback(msg){
   bdErrorMessage = msg;
+  useFilialMaps("AP"); bdMap.clear(); perfilMap.clear();
+  useFilialMaps("TB");
   rebuildBdMap(REF_BD);
   bdSource = "embutida (backup)";
   bdRowCount = REF_BD.length;
   rebuildPerfilMap(REF_PERFIL);
+  useFilialMaps(currentFilial);
   perfilSource = "embutida (backup)";
   perfilRowCount = REF_PERFIL.length;
 }
 
-const perfilMap = new Map();
 function rebuildPerfilMap(list){
   perfilMap.clear();
   list.forEach(r => perfilMap.set(normKey(r.regiao), r.perfil_min));
@@ -574,7 +596,8 @@ const HEADER_TARGETS = {
   qtdLiberada: "qtdliberada",
   pesoCx: "pesocx",
   gestao: "gestaodepedidos",
-  saldoSemGestao: "saldosemgestao"
+  saldoSemGestao: "saldosemgestao",
+  lojaEmbarque: "ljembarque"
 };
 
 function buildColumnMap(headerRow){
@@ -582,6 +605,7 @@ function buildColumnMap(headerRow){
   const map = {};
   for(const [field, target] of Object.entries(HEADER_TARGETS)){
     let idx = normed.indexOf(target);
+    if(idx===-1 && field==="lojaEmbarque") idx = normed.findIndex(h => h.includes("embarque"));
     map[field] = idx; // -1 if not found
   }
   return map;
@@ -590,7 +614,7 @@ function buildColumnMap(headerRow){
 /* ============================================================
    MOTOR DE CÁLCULO — replica as fórmulas da aba ARQ.SIST + REGIÃO
    ============================================================ */
-function computeDashboard(rawRows, colMap){
+function computeDashboard(rawRows, colMap, filialKey){
   let volumePrevisto = 0;   // SUM(N:N) -> todas as linhas, sempre
   let qtdCaixasTotal = 0;   // SUM(J:J) -> só linhas com região resolvida
 
@@ -702,7 +726,7 @@ function computeDashboard(rawRows, colMap){
   ];
 
   return {
-    filial: CONFIG.FILIAL,
+    filial: CONFIG.FILIAIS[filialKey||"TB"].nome,
     header: { volumePrevisto: Math.round(volumePrevisto), qtdCaixas: Math.round(qtdCaixasTotal) },
     totals: { falta: Math.round(totalStatus.falta), pedido: Math.round(totalStatus.pedido), liberado: Math.round(totalStatus.liberado) },
     rows, regionSummary: regionRows, regionTotal,
@@ -784,7 +808,22 @@ function getProdutosDoPedido(lineItems, pedidoRecord){
    ============================================================ */
 let latestData = null;
 let usingSample = false;
-let fleet = { ...DEFAULT_FLEET };
+let fleets = { TB:{ ...DEFAULT_FLEET }, AP:{ ...ZERO_FLEET } };
+let fleet = fleets[currentFilial];
+function applyFilial(){
+  if(allDash) latestData = allDash[currentFilial];
+  fleet = fleets[currentFilial];
+  useFilialMaps(currentFilial);
+  document.getElementById("tabTB").classList.toggle("active", currentFilial==="TB");
+  document.getElementById("tabAP").classList.toggle("active", currentFilial==="AP");
+}
+function setFilial(f){
+  if(f===currentFilial) return;
+  currentFilial = f;
+  try{ localStorage.setItem("farol_filial", f); }catch(e){}
+  applyFilial();
+  if(latestData) render();
+}
 let usingDemoAuth = false;
 
 function backendConfigured(){
@@ -910,10 +949,10 @@ async function saveFleet(){
     const input = form.querySelector(`[data-key="${t.key}"]`);
     newFleet[t.key] = parseInt(input.value || "0", 10);
   });
-  fleet = newFleet;
+  fleet = newFleet; fleets[currentFilial] = newFleet;
   if(backendConfigured()){
     try{
-      const data = await apiPost({ action:"saveFleet", password: adminPassword, fleet: newFleet });
+      const data = await apiPost({ action:"saveFleet", password: adminPassword, fleet: newFleet, filial: currentFilial });
       if(!data.ok) alert("Não consegui salvar no servidor: " + (data.error||"erro desconhecido"));
     }catch(e){
       alert("Sem conexão com o servidor — a frota só foi atualizada aqui nessa tela, não foi salva pra todo mundo.");
@@ -1007,7 +1046,8 @@ async function loadAllData(){
     if(!data.ok) throw new Error(data.error || "erro desconhecido");
 
     // frota
-    if(data.fleet) fleet = data.fleet;
+    if(data.fleet) fleets.TB = data.fleet;
+    if(data.fleetAp) fleets.AP = data.fleetAp;
 
     // BD + perfil mínimo (não derruba a base se falhar)
     if(data.bd && data.bd.ok){
@@ -1026,7 +1066,17 @@ async function loadAllData(){
     const missing = Object.entries(colMap).filter(([k,v])=>v===-1).map(([k])=>k);
     if(missing.length > 3) throw new Error("colunas não reconhecidas: "+missing.join(", "));
     const dataRows = parsed.slice(1);
-    latestData = computeDashboard(dataRows, colMap);
+    const byF = { TB:[], AP:[] };
+    dataRows.forEach(r => {
+      const lj = colMap.lojaEmbarque>=0 ? String(r[colMap.lojaEmbarque]).trim() : "";
+      if(lj==="") byF.TB.push(r);
+      else if(Number(lj)===CONFIG.FILIAIS.AP.loja) byF.AP.push(r);
+      else if(Number(lj)===CONFIG.FILIAIS.TB.loja) byF.TB.push(r);
+    });
+    allDash = {};
+    ["TB","AP"].forEach(f => { useFilialMaps(f); allDash[f] = computeDashboard(byF[f], colMap, f); });
+    useFilialMaps(currentFilial);
+    applyFilial();
     usingSample = false;
     if(data.lastModified) sheetLastModified = new Date(data.lastModified);
     setStatus(true, "conectado");
@@ -1050,13 +1100,13 @@ async function loadAllData(){
    CACHE LOCAL — mostra a última versão salva na hora que abre o
    app, sem precisar esperar a rede, e atualiza por trás depois.
    ============================================================ */
-const CACHE_KEY = "farol_cache_v1";
+const CACHE_KEY = "farol_cache_v2";
 let loadedFromCache = false;
 
 function saveCache(){
   try{
     safeStorageSet(CACHE_KEY, JSON.stringify({
-      latestData, fleet,
+      allDash, fleets,
       sheetLastModified: sheetLastModified ? sheetLastModified.toISOString() : null,
       cachedAt: new Date().toISOString()
     }));
@@ -1068,9 +1118,10 @@ function loadFromCacheIfAny(){
   if(!raw) return false;
   try{
     const c = JSON.parse(raw);
-    if(!c.latestData) return false;
-    latestData = c.latestData;
-    fleet = c.fleet || fleet;
+    if(!c.allDash) return false;
+    allDash = c.allDash;
+    fleets = c.fleets || fleets;
+    applyFilial();
     sheetLastModified = c.sheetLastModified ? new Date(c.sheetLastModified) : null;
     usingSample = false;
     loadedFromCache = true;
@@ -1352,6 +1403,7 @@ function renderDetail(mode, value){
    INIT
    ============================================================ */
 async function startApp(){
+  applyFilial();
   loadFromCacheIfAny(); // mostra a última versão salva na hora, sem esperar rede
   await loadAllData();
   setInterval(loadAllData, CONFIG.REFRESH_MS);
