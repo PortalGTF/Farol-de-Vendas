@@ -822,6 +822,7 @@ function setFilial(f){
   currentFilial = f;
   try{ localStorage.setItem("farol_filial", f); }catch(e){}
   applyFilial();
+  setStatus(lastStatusOk, lastStatusMsg); // refaz os avisos (cidades sem região etc.) da filial escolhida
   if(latestData) render();
 }
 let usingDemoAuth = false;
@@ -1131,7 +1132,9 @@ function loadFromCacheIfAny(){
   }catch(e){ return false; }
 }
 
+let lastStatusOk = true, lastStatusMsg = "";
 function setStatus(ok, msg){
+  lastStatusOk = ok; lastStatusMsg = msg;
   const meta = document.getElementById("metaBox");
   const fullySynced = ok && !usingSample && bdSource === "ao vivo" && perfilSource === "ao vivo (aba BD)";
   meta.classList.toggle("err", !ok);
